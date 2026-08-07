@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Reminder Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --linen:#EDE7DB;
+    --ink:#26312E;
+    --ink-soft:#5B6B63;
+    --gold:#B98A2E;
+    --clay:#B4634B;
+    --line: rgba(38,49,46,0.14);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%; margin:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(185,138,46,0.08), transparent 55%),
+      radial-gradient(ellipse at 80% 100%, rgba(180,99,75,0.07), transparent 55%),
+      var(--linen);
+    font-family:'Space Grotesk', sans-serif;
+    color:var(--ink);
+    overflow:hidden;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    display:flex; justify-content:space-between; align-items:flex-start;
+    padding: clamp(20px,4vw,44px) clamp(24px,5vw,56px) 0;
+    flex-shrink:0;
+  }
+  .eyebrow{
+    font-size:12px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink-soft); font-weight:500;
+  }
+  .clock{ text-align:right; }
+  .clock .time{
+    font-family:'Fraunces', serif; font-weight:500; font-size:clamp(22px,3vw,32px);
+    line-height:1;
+  }
+  .clock .date{
+    font-size:12px; color:var(--ink-soft); margin-top:4px; letter-spacing:.03em;
+  }
+  .stage{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    padding: 4vw 8vw; position:relative; cursor:pointer;
+  }
+  .card{ text-align:center; max-width:1000px; }
+  .card .tag{
+    display:inline-block;
+    font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--gold);
+    border:1px solid rgba(185,138,46,0.4);
+    border-radius:999px;
+    padding:5px 16px;
+    margin-bottom: clamp(18px,3vw,28px);
+    opacity:0; transform:translateY(6px);
+    animation: rise .6s .05s ease forwards;
+  }
+  .card .message{
+    font-family:'Fraunces', serif;
+    font-weight:500;
+    font-size: clamp(34px, 6vw, 74px);
+    line-height:1.18;
+    letter-spacing:-.01em;
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .1s ease forwards;
+  }
+  @keyframes rise{ to{ opacity:1; transform:translateY(0); } }
+  .dots{
+    display:flex; gap:9px; justify-content:center;
+    padding-bottom: clamp(22px,4vw,40px);
+    flex-shrink:0;
+  }
+  .dot{
+    width:7px; height:7px; border-radius:50%;
+    background: rgba(38,49,46,0.18);
+    transition: background .3s, transform .3s;
+  }
+  .dot.active{ background: var(--clay); transform:scale(1.3); }
+  .edit-fab{
+    position:fixed; bottom: 22px; right: 22px;
+    width:44px; height:44px; border-radius:50%;
+    background: var(--ink); color: var(--linen);
+    border:none; font-size:18px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    opacity:0.28; transition: opacity .2s;
+    z-index:5;
+  }
+  .edit-fab:hover{ opacity:1; }
+  .panel{
+    position:fixed; inset:0;
+    background: rgba(38,49,46,0.5);
+    display:none;
+    align-items:center; justify-content:center;
+    z-index:10; padding:20px;
+  }
+  .panel.open{ display:flex; }
+  .panel-inner{
+    background: var(--linen);
+    border-radius:20px;
+    width:100%; max-width:480px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+    overflow:hidden;
+  }
+  .panel-head{
+    padding:22px 24px 14px;
+    border-bottom:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  .panel-head h2{
+    font-family:'Fraunces', serif; font-weight:500; font-size:20px; margin:0;
+  }
+  .panel-head button{
+    background:none; border:none; font-size:20px; cursor:pointer; color:var(--ink-soft);
+  }
+  .panel-body{ padding:20px 24px 24px; display:flex; flex-direction:column; gap:16px; }
+  .field label{ font-size:13px; color:var(--ink-soft); display:block; margin-bottom:6px; }
+  .field input[type=text]{
+    width:100%; padding:11px 13px; border-radius:9px;
+    border:1px solid var(--line); background:white;
+    font-family:'Space Grotesk', sans-serif; font-size:13px; color:var(--ink);
+  }
+  .field input[type=number]{
+    width:70px; padding:8px 10px; border-radius:8px; border:1px solid var(--line);
+    font-family:'Space Grotesk', sans-serif; font-size:14px;
+  }
+  .field-row{ display:flex; align-items:center; gap:8px; }
+  #remoteStatus{ font-size:12px; color:var(--ink-soft); margin-top:6px; }
+  .hint{ font-size:12px; color:var(--ink-soft); line-height:1.5; }
+  .save-btn{
+    background: var(--ink); color:var(--linen); border:none;
+    border-radius:9px; padding:11px 16px; font-size:13px; cursor:pointer; align-self:flex-start;
+  }
+</style>
+</head>
+<body>
+
+  <div class="topbar">
+    <div class="eyebrow">Reminders</div>
+    <div class="clock">
+      <div class="time" id="time">--:--</div>
+      <div class="date" id="date">-</div>
+    </div>
+  </div>
+
+  <div class="stage" id="stage">
+    <div class="card">
+      <div class="tag" id="tag">Today</div>
+      <div class="message" id="message">Loading…</div>
+    </div>
+  </div>
+
+  <div class="dots" id="dots"></div>
+
+  <button class="edit-fab" id="editFab" title="Settings">⚙</button>
+
+  <div class="panel" id="panel">
+    <div class="panel-inner">
+      <div class="panel-head">
+        <h2>Settings</h2>
+        <button id="closePanel">✕</button>
+      </div>
+      <div class="panel-body">
+        <div class="field">
+          <label for="remoteUrl">Remote file (raw text URL)</label>
+          <input type="text" id="remoteUrl" placeholder="https://gist.githubusercontent.com/…/raw/reminders.txt">
+          <div id="remoteStatus"></div>
+        </div>
+        <div class="field-row">
+          <label for="interval" style="margin:0;">Change every</label>
+          <input type="number" id="interval" min="3" max="120" value="8">
+          <span style="font-size:13px; color:var(--ink-soft);">seconds</span>
+        </div>
+        <div class="hint">
+          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date (overrides that day entirely).
+        </div>
+        <button class="save-btn" id="saveBtn">Save & sync now</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+const LS_RULES = 'reminder-board-rules';
+const LS_SETTINGS = 'reminder-board-settings';
+let rules = [];
+let reminders = [];
+let settings = { interval: 8, remoteUrl: '' };
+let idx = 0;
+let rotateTimer = null;
+let midnightTimer = null;
+let remoteTimer = null;
+
+const stage = document.getElementById('stage');
+const messageEl = document.getElementById('message');
+const tagEl = document.getElementById('tag');
+const dotsEl = document.getElementById('dots');
+const panel = document.getElementById('panel');
+const intervalInput = document.getElementById('interval');
+const remoteUrlInput = document.getElementById('remoteUrl');
+
+const defaultRules = [
+  "Take your vitamins",
+  "Water the plants",
+  "Mon,Wed,Fri: Take the trash out",
+  "Sat,Sun: Feed the neighbor's cat"
+];
+
+const WEEKDAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function pad(n){ return n < 10 ? '0'+n : ''+n; }
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+function parseRule(line){
+  const dateMatch = line.match(/^(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/);
+  if(dateMatch) return { type:'date', date:dateMatch[1], text:dateMatch[2].trim() };
+  const dayMatch = line.match(/^((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:\s*,\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat))*)\s*:\s*(.+)$/i);
+  if(dayMatch){
+    const days = dayMatch[1].split(',').map(d => d.trim().slice(0,3).replace(/^\w/, c => c.toUpperCase()));
+    return { type:'weekday', days, text:dayMatch[2].trim() };
+  }
+  return { type:'daily', text: line.trim() };
+}
+
+function computeActive(){
+  const parsed = rules.map(parseRule).filter(r => r.text);
+  const today = todayISO();
+  const dateOverrides = parsed.filter(r => r.type === 'date' && r.date === today);
+  if(dateOverrides.length > 0) return dateOverrides.map(r => r.text);
+  const weekdayName = WEEKDAY_ABBR[new Date().getDay()];
+  return parsed
+    .filter(r => r.type === 'daily' || (r.type === 'weekday' && r.days.includes(weekdayName)))
+    .map(r => r.text);
+}
+
+function refreshActive(){
+  reminders = computeActive();
+  if(idx >= reminders.length) idx = 0;
+  renderDots();
+  showCurrent(true);
+}
+
+function scheduleMidnightRefresh(){
+  if(midnightTimer) clearTimeout(midnightTimer);
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 5);
+  midnightTimer = setTimeout(() => { refreshActive(); scheduleMidnightRefresh(); }, next - now);
+}
+
+function loadLocal(){
+  try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
+  catch(e){ rules = defaultRules; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: '' }; }
+  catch(e){ settings = { interval: 8, remoteUrl: '' }; }
+}
+function saveLocal(){
+  try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
+  try{ localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }catch(e){}
+}
+
+function startRemotePolling(){
+  if(remoteTimer) clearInterval(remoteTimer);
+  remoteTimer = setInterval(fetchRemote, 5 * 60 * 1000);
+}
+
+async function fetchRemote(){
+  const statusEl = document.getElementById('remoteStatus');
+  if(!settings.remoteUrl) return;
+  try{
+    const res = await fetch(settings.remoteUrl, { cache: 'no-store' });
+    if(!res.ok) throw new Error('Fetch failed: ' + res.status);
+    const text = await res.text();
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if(lines.length > 0){
+      rules = lines;
+      saveLocal();
+      refreshActive();
+      if(statusEl) statusEl.textContent = 'Last synced: ' + new Date().toLocaleTimeString();
+    }
+  }catch(e){
+    if(statusEl) statusEl.textContent = 'Could not reach remote file — check the URL.';
+  }
+}
+
+function renderDots(){
+  dotsEl.innerHTML = '';
+  reminders.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === idx ? ' active' : '');
+    dotsEl.appendChild(d);
+  });
+}
+
+function showCurrent(skipAnim){
+  if(reminders.length === 0){
+    tagEl.style.display = 'none';
+    messageEl.textContent = "No reminders for today — tap ⚙ to add a remote file";
+    return;
+  }
+  tagEl.style.display = 'inline-block';
+  tagEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long' });
+  const card = document.querySelector('.card');
+  if(!skipAnim){
+    card.style.animation = 'none';
+    void card.offsetWidth;
+    tagEl.style.animation = '';
+    messageEl.style.animation = '';
+  }
+  messageEl.textContent = reminders[idx];
+  renderDots();
+}
+
+function nextReminder(){
+  if(reminders.length === 0) return;
+  idx = (idx + 1) % reminders.length;
+  showCurrent();
+}
+
+function startRotation(){
+  if(rotateTimer) clearInterval(rotateTimer);
+  rotateTimer = setInterval(nextReminder, Math.max(3, settings.interval) * 1000);
+}
+
+stage.addEventListener('click', () => { nextReminder(); startRotation(); });
+document.getElementById('editFab').addEventListener('click', () => panel.classList.add('open'));
+document.getElementById('closePanel').addEventListener('click', () => panel.classList.remove('open'));
+panel.addEventListener('click', (e) => { if(e.target === panel) panel.classList.remove('open'); });
+
+document.getElementById('saveBtn').addEventListener('click', () => {
+  let v = parseInt(intervalInput.value, 10);
+  if(isNaN(v) || v < 3) v = 3;
+  if(v > 120) v = 120;
+  intervalInput.value = v;
+  settings.interval = v;
+  settings.remoteUrl = remoteUrlInput.value.trim();
+  saveLocal();
+  startRotation();
+  if(settings.remoteUrl){
+    fetchRemote();
+    startRemotePolling();
+  } else if(remoteTimer){
+    clearInterval(remoteTimer);
+  }
+});
+
+function tickClock(){
+  const now = new Date();
+  document.getElementById('time').textContent = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  document.getElementById('date').textContent = now.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+}
+tickClock();
+setInterval(tickClock, 15000);
+
+function init(){
+  loadLocal();
+  intervalInput.value = settings.interval;
+  remoteUrlInput.value = settings.remoteUrl || '';
+  refreshActive();
+  startRotation();
+  scheduleMidnightRefresh();
+  if(settings.remoteUrl){
+    fetchRemote();
+    startRemotePolling();
+  }
+}
+init();
+</script>
+</body>
+</html>
