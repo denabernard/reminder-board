@@ -8,19 +8,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root{
-    --linen:#EDE7DB;
-    --ink:#26312E;
-    --ink-soft:#5B6B63;
-    --gold:#B98A2E;
-    --clay:#B4634B;
-    --line: rgba(38,49,46,0.14);
+    --linen:#000000;
+    --ink:#FFFFFF;
+    --ink-soft:#9A9A9A;
+    --gold:#E8B23D;
+    --clay:#E8734F;
+    --line: rgba(255,255,255,0.14);
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%; margin:0;}
   body{
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(185,138,46,0.08), transparent 55%),
-      radial-gradient(ellipse at 80% 100%, rgba(180,99,75,0.07), transparent 55%),
+      radial-gradient(ellipse at 20% 0%, rgba(232,178,61,0.06), transparent 55%),
+      radial-gradient(ellipse at 80% 100%, rgba(232,115,79,0.05), transparent 55%),
       var(--linen);
     font-family:'Space Grotesk', sans-serif;
     color:var(--ink);
@@ -65,13 +65,29 @@
   .card .message{
     font-family:'Fraunces', serif;
     font-weight:500;
-    font-size: clamp(34px, 6vw, 74px);
-    line-height:1.18;
+    font-size: clamp(48px, 9vw, 140px);
+    line-height:1.12;
     letter-spacing:-.01em;
     opacity:0; transform:translateY(10px);
     animation: rise .7s .1s ease forwards;
   }
   @keyframes rise{ to{ opacity:1; transform:translateY(0); } }
+  .card .photo{
+    max-width: 80vw;
+    max-height: 62vh;
+    border-radius: 16px;
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .1s ease forwards;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .card .caption{
+    font-family:'Fraunces', serif;
+    font-size: clamp(20px, 3vw, 36px);
+    margin-top: 22px;
+    color: var(--ink);
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .15s ease forwards;
+  }
   .dots{
     display:flex; gap:9px; justify-content:center;
     padding-bottom: clamp(22px,4vw,40px);
@@ -152,7 +168,7 @@
   <div class="stage" id="stage">
     <div class="card">
       <div class="tag" id="tag">Today</div>
-      <div class="message" id="message">Loading…</div>
+      <div id="content"><div class="message">Loading…</div></div>
     </div>
   </div>
 
@@ -177,8 +193,12 @@
           <input type="number" id="interval" min="3" max="120" value="8">
           <span style="font-size:13px; color:var(--ink-soft);">seconds</span>
         </div>
+        <div class="field-row">
+          <label for="soundToggle" style="margin:0;">Play sound on alerts</label>
+          <input type="checkbox" id="soundToggle" style="width:18px; height:18px;">
+        </div>
         <div class="hint">
-          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date (overrides that day entirely).
+          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date (overrides that day entirely) · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
       </div>
@@ -190,19 +210,19 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: '' };
+let settings = { interval: 8, remoteUrl: '', soundOn: false };
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
 let remoteTimer = null;
 
 const stage = document.getElementById('stage');
-const messageEl = document.getElementById('message');
 const tagEl = document.getElementById('tag');
 const dotsEl = document.getElementById('dots');
 const panel = document.getElementById('panel');
 const intervalInput = document.getElementById('interval');
 const remoteUrlInput = document.getElementById('remoteUrl');
+const soundToggleInput = document.getElementById('soundToggle');
 
 const defaultRules = [
   "Take your vitamins",
@@ -219,26 +239,39 @@ function todayISO(){
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
 
+// Extracts content-level info (photo / alert) from the text portion of a rule, after schedule prefix is stripped
+function parseContent(text){
+  const photoMatch = text.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
+  if(photoMatch){
+    return { kind: 'photo', imageUrl: photoMatch[1].trim(), caption: (photoMatch[2] || '').trim(), alert: false };
+  }
+  const alertMatch = text.match(/^alert\s*:\s*(.+)$/i);
+  if(alertMatch){
+    return { kind: 'text', text: alertMatch[1].trim(), alert: true };
+  }
+  return { kind: 'text', text: text, alert: false };
+}
+
 function parseRule(line){
   const dateMatch = line.match(/^(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/);
-  if(dateMatch) return { type:'date', date:dateMatch[1], text:dateMatch[2].trim() };
+  if(dateMatch) return Object.assign({ type:'date', date:dateMatch[1] }, parseContent(dateMatch[2].trim()));
   const dayMatch = line.match(/^((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:\s*,\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat))*)\s*:\s*(.+)$/i);
   if(dayMatch){
     const days = dayMatch[1].split(',').map(d => d.trim().slice(0,3).replace(/^\w/, c => c.toUpperCase()));
-    return { type:'weekday', days, text:dayMatch[2].trim() };
+    return Object.assign({ type:'weekday', days }, parseContent(dayMatch[2].trim()));
   }
-  return { type:'daily', text: line.trim() };
+  return Object.assign({ type:'daily' }, parseContent(line.trim()));
 }
 
 function computeActive(){
-  const parsed = rules.map(parseRule).filter(r => r.text);
+  const parsed = rules.map(parseRule).filter(r => r.kind === 'photo' ? r.imageUrl : r.text);
   const today = todayISO();
   const dateOverrides = parsed.filter(r => r.type === 'date' && r.date === today);
-  if(dateOverrides.length > 0) return dateOverrides.map(r => r.text);
-  const weekdayName = WEEKDAY_ABBR[new Date().getDay()];
-  return parsed
-    .filter(r => r.type === 'daily' || (r.type === 'weekday' && r.days.includes(weekdayName)))
-    .map(r => r.text);
+  const pool = dateOverrides.length > 0 ? dateOverrides : parsed.filter(r => {
+    const weekdayName = WEEKDAY_ABBR[new Date().getDay()];
+    return r.type === 'daily' || (r.type === 'weekday' && r.days.includes(weekdayName));
+  });
+  return pool.map(r => ({ kind: r.kind, text: r.text, imageUrl: r.imageUrl, caption: r.caption, alert: r.alert }));
 }
 
 function refreshActive(){
@@ -258,8 +291,8 @@ function scheduleMidnightRefresh(){
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: '' }; }
-  catch(e){ settings = { interval: 8, remoteUrl: '' }; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: '', soundOn: false }; }
+  catch(e){ settings = { interval: 8, remoteUrl: '', soundOn: false }; }
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
@@ -299,23 +332,57 @@ function renderDots(){
   });
 }
 
+function playChime(){
+  if(!settings.soundOn) return;
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const notes = [880, 1108.73];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime + i*0.18);
+      gain.gain.linearRampToValueAtTime(0.22, ctx.currentTime + i*0.18 + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + i*0.18 + 0.5);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + i*0.18);
+      osc.stop(ctx.currentTime + i*0.18 + 0.55);
+    });
+  }catch(e){}
+}
+
+const contentEl = document.getElementById('content');
+
 function showCurrent(skipAnim){
   if(reminders.length === 0){
     tagEl.style.display = 'none';
-    messageEl.textContent = "No reminders for today — tap ⚙ to add a remote file";
+    contentEl.innerHTML = '<div class="message" style="font-size:clamp(28px,4vw,48px);">No reminders for today — tap ⚙ to add a remote file</div>';
     return;
   }
+  const item = reminders[idx];
   tagEl.style.display = 'inline-block';
   tagEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long' });
-  const card = document.querySelector('.card');
-  if(!skipAnim){
-    card.style.animation = 'none';
-    void card.offsetWidth;
-    tagEl.style.animation = '';
-    messageEl.style.animation = '';
+
+  if(item.kind === 'photo'){
+    contentEl.innerHTML = `<img class="photo" src="${item.imageUrl}" alt="">` +
+      (item.caption ? `<div class="caption">${escapeHtml(item.caption)}</div>` : '');
+  } else {
+    contentEl.innerHTML = `<div class="message">${escapeHtml(item.text)}</div>`;
   }
-  messageEl.textContent = reminders[idx];
+
+  if(!skipAnim){
+    Array.from(contentEl.children).forEach(c => { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; });
+  }
+
+  if(item.alert) playChime();
   renderDots();
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
 }
 
 function nextReminder(){
@@ -341,6 +408,7 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   intervalInput.value = v;
   settings.interval = v;
   settings.remoteUrl = remoteUrlInput.value.trim();
+  settings.soundOn = soundToggleInput.checked;
   saveLocal();
   startRotation();
   if(settings.remoteUrl){
@@ -363,6 +431,7 @@ function init(){
   loadLocal();
   intervalInput.value = settings.interval;
   remoteUrlInput.value = settings.remoteUrl || '';
+  soundToggleInput.checked = !!settings.soundOn;
   refreshActive();
   startRotation();
   scheduleMidnightRefresh();
