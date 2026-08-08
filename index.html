@@ -321,9 +321,13 @@ async function fetchRemote(){
     const text = await res.text();
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if(lines.length > 0){
+      const previousLines = rules;
+      const newLines = lines.filter(l => !previousLines.includes(l));
+      const hasNewAlert = newLines.some(l => parseRule(l).alert);
       rules = lines;
       saveLocal();
       refreshActive();
+      if(hasNewAlert) playChime();
       if(statusEl) statusEl.textContent = 'Last synced: ' + new Date().toLocaleTimeString();
     }
   }catch(e){
@@ -383,7 +387,6 @@ function showCurrent(skipAnim){
     Array.from(contentEl.children).forEach(c => { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; });
   }
 
-  if(item.alert) playChime();
   renderDots();
 }
 
