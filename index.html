@@ -218,7 +218,7 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: '', soundOn: false };
+let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false };
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
@@ -299,8 +299,8 @@ function scheduleMidnightRefresh(){
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: '', soundOn: false }; }
-  catch(e){ settings = { interval: 8, remoteUrl: '', soundOn: false }; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false }; }
+  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false }; }
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
