@@ -209,7 +209,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date (overrides that day entirely) · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 5 — photos, alerts, 30s sync</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 6 — photo+alert fix</div>
       </div>
     </div>
   </div>
@@ -250,15 +250,15 @@ function todayISO(){
 
 // Extracts content-level info (photo / alert) from the text portion of a rule, after schedule prefix is stripped
 function parseContent(text){
-  const photoMatch = text.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
+  let alert = false;
+  let body = text;
+  const alertMatch = body.match(/^alert\s*:\s*(.+)$/i);
+  if(alertMatch){ alert = true; body = alertMatch[1].trim(); }
+  const photoMatch = body.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
   if(photoMatch){
-    return { kind: 'photo', imageUrl: photoMatch[1].trim(), caption: (photoMatch[2] || '').trim(), alert: false };
+    return { kind: 'photo', imageUrl: photoMatch[1].trim(), caption: (photoMatch[2] || '').trim(), alert };
   }
-  const alertMatch = text.match(/^alert\s*:\s*(.+)$/i);
-  if(alertMatch){
-    return { kind: 'text', text: alertMatch[1].trim(), alert: true };
-  }
-  return { kind: 'text', text: text, alert: false };
+  return { kind: 'text', text: body, alert };
 }
 
 function parseRule(line){
