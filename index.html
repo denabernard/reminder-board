@@ -309,7 +309,7 @@ function saveLocal(){
 
 function startRemotePolling(){
   if(remoteTimer) clearInterval(remoteTimer);
-  remoteTimer = setInterval(fetchRemote, 5 * 60 * 1000);
+  remoteTimer = setInterval(fetchRemote, 30 * 1000);
 }
 
 async function fetchRemote(){
