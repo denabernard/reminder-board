@@ -47,8 +47,8 @@
   }
   .topbar{
     display:flex; flex-direction:column; align-items:center;
-    padding: clamp(18px,3.5vw,40px) clamp(24px,5vw,56px) 0;
-    flex-shrink:0; text-align:center;
+    padding: clamp(14px,2.5vw,30px) clamp(24px,5vw,56px) 0;
+    flex:0 0 auto; text-align:center;
   }
   .eyebrow{
     font-size:clamp(13px,1.5vw,20px); letter-spacing:.2em; text-transform:uppercase;
@@ -69,17 +69,19 @@
   .footbar{
     display:flex; justify-content:center; align-items:baseline;
     gap: clamp(12px,2vw,26px);
-    padding-bottom: clamp(14px,2vw,26px);
-    flex-shrink:0; color:var(--ink-soft);
+    padding: clamp(6px,1vw,12px) 0 clamp(10px,1.4vw,18px);
+    flex:0 0 auto; color:var(--ink-soft);
     font-family:'Space Grotesk', sans-serif;
     font-size:clamp(13px,1.5vw,20px); letter-spacing:.05em;
   }
   .footbar .sep{ opacity:.4; }
   .stage{
-    flex:1; display:flex; align-items:center; justify-content:center;
-    padding: 2.5vw 8vw; position:relative; cursor:pointer;
+    flex:1 1 auto; min-height:0;
+    display:flex; align-items:center; justify-content:center;
+    padding: 2vw 6vw; position:relative; cursor:pointer;
+    overflow:hidden;
   }
-  .card{ text-align:center; max-width:1000px; width:100%; }
+  .card{ text-align:center; max-width:1100px; width:100%; max-height:100%; overflow:hidden; }
   .new-badge{
     display:inline-block;
     font-size:12px; letter-spacing:.16em; text-transform:uppercase;
@@ -217,8 +219,8 @@
   }
   .dots{
     display:flex; gap:9px; justify-content:center;
-    padding-bottom: clamp(22px,4vw,40px);
-    flex-shrink:0;
+    padding-bottom: clamp(12px,2vw,22px);
+    flex:0 0 auto;
   }
   .dot{
     width:7px; height:7px; border-radius:50%;
@@ -367,7 +369,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "until 2026-09-01:" = stops after that date · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 20 — light/dark option</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 21 — AM/PM schedule split</div>
       </div>
     </div>
   </div>
@@ -539,6 +541,19 @@ function extractTime(text){
   return null;
 }
 
+// The schedule has its own time column, so drop the time from the label text
+function stripTimeFromLabel(text){
+  let out = text
+    // trailing range: "Morning Exercise 10:00 am-10:30 am"
+    .replace(/\s*[-–—]?\s*\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?\s*(?:-|–|—|to)\s*\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\s*$/i, '')
+    // trailing single time, with or without "at": "Bingo at 1:30"
+    .replace(/\s*(?:\bat\s+)?\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\s*$/i, '')
+    .replace(/\s*(?:\bat\s+)\d{1,2}:\d{2}\s*$/i, '')
+    .replace(/[\s,:–—-]+$/, '')
+    .trim();
+  return out || text.trim();
+}
+
 function summaryLabel(r){
   return r.kind === 'photo' ? (r.caption || 'Photo') : r.text;
 }
@@ -550,41 +565,52 @@ function fmtTime(mins){
   return h12 + ':' + pad(m) + ' ' + mer;
 }
 
-// The whole day laid out in order, with a NOW marker showing where we are.
-function buildSchedulePage(){
+// The day laid out in order, split into morning and afternoon so the type stays large.
+function buildSchedulePages(){
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
 
   const timed = itemsForDate(effectiveDate())
     .map(r => ({
-      label: r.schedLabel || summaryLabel(r),
+      label: stripTimeFromLabel(r.schedLabel || summaryLabel(r)),
       t: extractTime(summaryLabel(r))
     }))
     .filter(x => x.t)
     .sort((a,b) => a.t.minutes - b.t.minutes);
 
-  if(timed.length === 0) return { kind:'schedule', rows: [], raw:'__schedule__' };
+  if(timed.length === 0) return [];
 
-  const rows = [];
-  let nowPlaced = false;
-  timed.forEach(x => {
-    if(!nowPlaced && nowMinutes < x.t.minutes){
-      rows.push({ type:'now' });
-      nowPlaced = true;
-    }
-    const endsAt = (x.t.end != null ? x.t.end : x.t.minutes) + grace;
-    const past = nowMinutes > endsAt;
-    const current = !past && nowMinutes >= x.t.minutes;
-    rows.push({
-      type:'item',
-      time: fmtTime(x.t.minutes) + (x.t.end != null ? ' – ' + fmtTime(x.t.end) : ''),
-      label: x.label, past, current
+  const NOON = 12 * 60;
+  const groups = [
+    { title:'This morning',   items: timed.filter(x => x.t.minutes <  NOON), from: 0,    to: NOON },
+    { title:'This afternoon', items: timed.filter(x => x.t.minutes >= NOON), from: NOON, to: 24*60 }
+  ].filter(g => g.items.length);
+
+  // If everything lands in one half, don't label it as half a day
+  if(groups.length === 1) groups[0].title = "Today's schedule";
+
+  return groups.map(g => {
+    const rows = [];
+    let nowPlaced = false;
+    const nowInThisHalf = nowMinutes >= g.from && nowMinutes < g.to;
+    g.items.forEach(x => {
+      if(nowInThisHalf && !nowPlaced && nowMinutes < x.t.minutes){
+        rows.push({ type:'now' });
+        nowPlaced = true;
+      }
+      const endsAt = (x.t.end != null ? x.t.end : x.t.minutes) + grace;
+      const past = nowMinutes > endsAt;
+      const current = !past && nowMinutes >= x.t.minutes;
+      rows.push({
+        type:'item',
+        time: fmtTime(x.t.minutes) + (x.t.end != null ? ' – ' + fmtTime(x.t.end) : ''),
+        label: x.label, past, current
+      });
     });
+    if(nowInThisHalf && !nowPlaced) rows.push({ type:'now' });
+    return { kind:'schedule', title:g.title, rows, raw:'__sched_' + g.title + '__' };
   });
-  if(!nowPlaced) rows.push({ type:'now' });
-
-  return { kind:'schedule', title:"Today's schedule", rows, raw:'__schedule__' };
 }
 
 function computeActive(){
@@ -619,8 +645,8 @@ let lastActiveKey = null;
 function refreshActive(force){
   let next = computeActive();
   if(settings.showSummaries !== false){
-    const sched = buildSchedulePage();
-    if(sched.rows && sched.rows.length) next = [sched].concat(next);
+    const schedPages = buildSchedulePages();
+    if(schedPages.length) next = schedPages.concat(next);
   }
 
   // Build a comparison key that ignores the minute-by-minute NOW clock,
@@ -770,10 +796,11 @@ function showCurrent(skipAnim){
     // Scale to fit: the more rows, the smaller the type
     const n = item.rows.length;
     let labelSize, timeSize, rowPad, titleSize;
-    if(n <= 5){      labelSize='clamp(26px,3.4vw,50px)'; timeSize='clamp(16px,1.9vw,28px)'; rowPad='clamp(6px,0.9vw,12px)'; titleSize='clamp(28px,4vw,54px)'; }
-    else if(n <= 8){ labelSize='clamp(22px,2.7vw,40px)'; timeSize='clamp(14px,1.6vw,23px)'; rowPad='clamp(4px,0.6vw,9px)';  titleSize='clamp(24px,3.2vw,44px)'; }
-    else if(n <= 11){labelSize='clamp(18px,2.1vw,31px)'; timeSize='clamp(12px,1.35vw,19px)';rowPad='clamp(3px,0.4vw,6px)';  titleSize='clamp(20px,2.6vw,36px)'; }
-    else {           labelSize='clamp(15px,1.7vw,25px)'; timeSize='clamp(11px,1.15vw,16px)';rowPad='2px';                   titleSize='clamp(18px,2.2vw,30px)'; }
+    if(n <= 4){      labelSize='clamp(34px,4.6vw,72px)'; timeSize='clamp(20px,2.4vw,36px)'; rowPad='clamp(8px,1.2vw,18px)'; titleSize='clamp(26px,3.4vw,48px)'; }
+    else if(n <= 6){ labelSize='clamp(28px,3.8vw,58px)'; timeSize='clamp(17px,2vw,30px)';   rowPad='clamp(6px,0.9vw,13px)'; titleSize='clamp(23px,3vw,42px)'; }
+    else if(n <= 8){ labelSize='clamp(24px,3.1vw,46px)'; timeSize='clamp(15px,1.7vw,25px)'; rowPad='clamp(4px,0.6vw,9px)';  titleSize='clamp(21px,2.6vw,36px)'; }
+    else if(n <= 11){labelSize='clamp(20px,2.4vw,35px)'; timeSize='clamp(13px,1.4vw,20px)'; rowPad='clamp(3px,0.4vw,6px)';  titleSize='clamp(19px,2.2vw,30px)'; }
+    else {           labelSize='clamp(16px,1.9vw,27px)'; timeSize='clamp(11px,1.2vw,17px)'; rowPad='2px';                   titleSize='clamp(17px,2vw,26px)'; }
 
     contentEl.innerHTML =
       `<div class="summary-title" style="font-size:${titleSize}; margin-bottom:${n > 8 ? '10px' : '18px'};">${escapeHtml(item.title)}</div>` +
