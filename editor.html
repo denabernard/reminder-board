@@ -1,0 +1,967 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Reminder Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500,600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F7F5F0; --panel:#FFFFFF; --ink:#1C1F1E; --ink-soft:#6B7370;
+    --gold:#B98A2E; --clay:#C1543A; --line:#E3E0D8; --green:#3E7A57;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Space Grotesk',sans-serif; padding:24px 16px 80px;
+  }
+  h1{
+    font-family:'Fraunces',serif; font-weight:600; font-size:28px; margin:0 0 4px;
+  }
+  .sub{ color:var(--ink-soft); font-size:14px; margin-bottom:24px; }
+  .wrap{ max-width:640px; margin:0 auto; }
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:16px;
+    padding:20px; margin-bottom:20px;
+  }
+  .panel h2{ font-family:'Fraunces',serif; font-size:17px; margin:0 0 14px; font-weight:600; }
+  label{ font-size:13px; color:var(--ink-soft); display:block; margin-bottom:5px; }
+  input[type=text], textarea, input[type=date]{
+    width:100%; padding:11px 13px; border-radius:9px; border:1px solid var(--line);
+    font-family:'Space Grotesk',sans-serif; font-size:14px; color:var(--ink); background:#fff;
+    -webkit-text-fill-color: var(--ink);
+    opacity: 1;
+  }
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus{
+    -webkit-text-fill-color: var(--ink) !important;
+    -webkit-box-shadow: 0 0 0 1000px #fff inset !important;
+    transition: background-color 9999s ease-in-out 0s;
+  }
+  textarea{ resize:vertical; min-height:44px; }
+  .field{ margin-bottom:14px; }
+  .row{ display:flex; gap:10px; }
+  .row > *{ flex:1; }
+  .type-choice{ display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+  .type-btn{
+    flex:1; min-width:100px; padding:10px; border-radius:9px; border:1px solid var(--line);
+    background:#fff; cursor:pointer; font-size:13px; text-align:center; color:var(--ink-soft);
+  }
+  .type-btn.active{ border-color:var(--gold); color:var(--gold); background:rgba(185,138,46,0.08); font-weight:500; }
+  .days{ display:flex; gap:6px; flex-wrap:wrap; }
+  .day-chip{
+    padding:7px 12px; border-radius:999px; border:1px solid var(--line); background:#fff;
+    font-size:12px; cursor:pointer; color:var(--ink-soft);
+  }
+  .day-chip.active{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .toggle-row{ display:flex; align-items:center; gap:8px; margin-bottom:14px; }
+  .toggle-row input{ width:17px; height:17px; }
+  .toggle-row label{ margin:0; color:var(--ink); font-size:14px; }
+  .hidden{ display:none; }
+  .add-btn{
+    background:var(--ink); color:#fff; border:none; border-radius:10px;
+    padding:13px 18px; font-size:14px; cursor:pointer; width:100%; font-weight:500;
+  }
+  .list-item{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:10px;
+    padding:12px 0; border-bottom:1px solid var(--line);
+  }
+  .list-item:last-child{ border-bottom:none; }
+  .list-item .badge{
+    font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--gold);
+    font-weight:600; margin-bottom:3px; display:block;
+  }
+  .list-item .txt{ font-size:14px; line-height:1.4; }
+  .list-item button{
+    background:none; border:none; color:var(--clay); font-size:12px; cursor:pointer; flex-shrink:0;
+  }
+  .empty{ color:var(--ink-soft); font-size:13px; padding:8px 0; }
+  .section{
+    border:1px solid var(--line); border-radius:12px;
+    padding:12px 14px; margin-bottom:12px; background:#FCFBF8;
+  }
+  .section-title{
+    font-family:'Fraunces',serif; font-size:15px; font-weight:600;
+    margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;
+  }
+  .section-title .n{
+    font-family:'Space Grotesk',sans-serif; font-size:11px; font-weight:500;
+    color:var(--ink-soft);
+  }
+  .section.daily{ border-left:3px solid var(--green); }
+  .section.weekday{ border-left:3px solid var(--gold); }
+  .section.dated{ border-left:3px solid var(--clay); }
+  .date-label{
+    font-size:11px; color:var(--clay); font-weight:600; letter-spacing:.03em;
+    margin-top:10px;
+  }
+  #output{
+    width:100%; min-height:140px; font-family:monospace; font-size:12px;
+    padding:12px; border-radius:9px; border:1px solid var(--line); background:#FAFAF7;
+  }
+  .copy-btn{
+    background:var(--green); color:#fff; border:none; border-radius:9px;
+    padding:11px 16px; font-size:13px; cursor:pointer; margin-top:10px;
+  }
+  .copied{ color:var(--green); font-size:12px; margin-left:10px; }
+  .steps{ font-size:13px; color:var(--ink-soft); line-height:1.6; margin-top:10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Reminder Editor</h1>
+  <div class="sub">This mirrors your live gist file. Changes here push back to it.</div>
+
+  <div class="panel">
+    <h2 style="display:flex; justify-content:space-between; align-items:center;">
+      <span>What's in your file</span>
+      <span id="countBadge" style="font-size:12px; font-weight:400; color:var(--ink-soft); font-family:'Space Grotesk',sans-serif;"></span>
+    </h2>
+    <div id="sourceBanner" style="font-size:12px; padding:8px 10px; border-radius:8px; margin-bottom:12px; line-height:1.4;"></div>
+    <div id="list"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Import a calendar file (.ics)</h2>
+    <div class="field">
+      <label>Calendar file</label>
+      <input type="file" id="icsFile" accept=".ics,text/calendar" style="width:100%; font-size:13px;">
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>From</label>
+        <input type="date" id="icsFrom">
+      </div>
+      <div class="field">
+        <label>Through</label>
+        <input type="date" id="icsTo">
+      </div>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="icsLocation">
+      <label for="icsLocation">Include the location</label>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="icsAlert">
+      <label for="icsAlert">Chime for these</label>
+    </div>
+    <button class="add-btn" id="icsPreviewBtn">Read the file</button>
+    <div id="icsPreview" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Import a day's activities</h2>
+    <div class="field">
+      <label>Date these events are on</label>
+      <input type="date" id="importDate">
+    </div>
+    <div class="field">
+      <label>Paste the calendar listing</label>
+      <textarea id="importText" style="min-height:150px; font-family:monospace; font-size:12px;" placeholder="10:00 am&#10;10:30 am&#10;Morning Exercise&#10;Activity Room-3rd Floor&#10;&#10;2:00 pm&#10;2:30 pm&#10;CULINARY MEETING"></textarea>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="importAlert">
+      <label for="importAlert">Chime for these</label>
+    </div>
+    <button class="add-btn" id="previewBtn">Preview what will be added</button>
+    <div id="importPreview" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Add a reminder</h2>
+
+    <div class="type-choice">
+      <div class="type-btn active" data-type="daily">Every day</div>
+      <div class="type-btn" data-type="weekday">Certain days</div>
+      <div class="type-btn" data-type="date">One-time date</div>
+    </div>
+
+    <div id="weekdayField" class="field hidden">
+      <label>Which days?</label>
+      <div class="days">
+        <div class="day-chip" data-day="Sun">Sun</div>
+        <div class="day-chip" data-day="Mon">Mon</div>
+        <div class="day-chip" data-day="Tue">Tue</div>
+        <div class="day-chip" data-day="Wed">Wed</div>
+        <div class="day-chip" data-day="Thu">Thu</div>
+        <div class="day-chip" data-day="Fri">Fri</div>
+        <div class="day-chip" data-day="Sat">Sat</div>
+      </div>
+    </div>
+
+    <div id="dateField" class="field hidden">
+      <label>Date</label>
+      <input type="date" id="dateInput">
+    </div>
+
+    <div id="untilField" class="field">
+      <label>Stop showing after (optional)</label>
+      <input type="date" id="untilInput">
+    </div>
+
+    <div class="toggle-row">
+      <input type="checkbox" id="photoToggle">
+      <label for="photoToggle">This is a photo, not text</label>
+    </div>
+
+    <div id="textField" class="field">
+      <label>Message</label>
+      <textarea id="textInput" placeholder="Take your vitamins"></textarea>
+    </div>
+
+    <div id="photoFields" class="hidden">
+      <div class="field">
+        <label>Image URL</label>
+        <input type="text" id="photoUrl" placeholder="https://example.com/photo.jpg">
+      </div>
+      <div class="field">
+        <label>Caption (optional)</label>
+        <input type="text" id="photoCaption" placeholder="Grandma's birthday">
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <input type="checkbox" id="alertToggle">
+      <label for="alertToggle">Play a chime when this shows</label>
+    </div>
+
+    <button class="add-btn" id="addBtn">Add reminder</button>
+    <div id="addStatus" style="font-size:12px; margin-top:8px; min-height:16px;"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Push to your gist</h2>
+    <div id="connFields">
+      <div class="field">
+        <label>Gist ID</label>
+        <input type="text" id="gistId" value="d00ff100a0706865a61694292d24671d" placeholder="the code from your gist's URL">
+      </div>
+      <div class="field">
+        <label>Filename in the gist</label>
+        <input type="text" id="gistFilename" value="reminders.txt" placeholder="reminders.txt">
+      </div>
+      <div class="field">
+        <label>Raw URL (used for reading the file)</label>
+        <input type="text" id="rawUrl" value="https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt" placeholder="https://gist.githubusercontent.com/...">
+      </div>
+      <div class="field">
+        <label>Personal access token (gist scope only)</label>
+        <input type="text" id="gistToken" placeholder="ghp_...">
+      </div>
+      <div class="toggle-row">
+        <input type="checkbox" id="rememberToken">
+        <label for="rememberToken">Remember this token so I don't have to paste it again</label>
+      </div>
+    </div>
+    <button class="copy-btn" id="pushBtn" style="background:var(--gold);">Push to gist now</button>
+    <button class="copy-btn" id="pullBtn" style="background:var(--ink-soft); margin-left:6px;">Reload from gist</button>
+    <span id="pushStatus" style="font-size:12px; margin-left:10px;"></span>
+    <div id="connToggleWrap" style="margin-top:10px; display:none;">
+      <a href="#" id="connToggle" style="font-size:12px; color:var(--ink-soft);">Change connection settings</a>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Or copy manually</h2>
+    <textarea id="output" readonly></textarea>
+    <button class="copy-btn" id="copyBtn">Copy all text</button>
+    <span class="copied" id="copiedMsg" style="display:none;">Copied!</span>
+    <div class="steps">
+      Paste this into your gist's edit page if you'd rather not use the token-based push above.
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'reminder-editor-rules';
+let rules = [];
+let currentType = 'daily';
+let selectedDays = [];
+
+const typeButtons = document.querySelectorAll('.type-btn');
+const weekdayField = document.getElementById('weekdayField');
+const dateField = document.getElementById('dateField');
+const dateInput = document.getElementById('dateInput');
+const untilInput = document.getElementById('untilInput');
+const dayChips = document.querySelectorAll('.day-chip');
+const photoToggle = document.getElementById('photoToggle');
+const textField = document.getElementById('textField');
+const textInput = document.getElementById('textInput');
+const photoFields = document.getElementById('photoFields');
+const photoUrl = document.getElementById('photoUrl');
+const photoCaption = document.getElementById('photoCaption');
+const alertToggle = document.getElementById('alertToggle');
+const listEl = document.getElementById('list');
+const output = document.getElementById('output');
+
+function pad2(n){ return n < 10 ? '0'+n : ''+n; }
+function todayValue(){
+  const d = new Date();
+  return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate());
+}
+
+typeButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    typeButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentType = btn.dataset.type;
+    weekdayField.classList.toggle('hidden', currentType !== 'weekday');
+    dateField.classList.toggle('hidden', currentType !== 'date');
+    if(currentType === 'date' && !dateInput.value) dateInput.value = todayValue();
+  });
+});
+
+dayChips.forEach(chip => {
+  chip.addEventListener('click', () => {
+    const day = chip.dataset.day;
+    if(selectedDays.includes(day)){
+      selectedDays = selectedDays.filter(d => d !== day);
+      chip.classList.remove('active');
+    } else {
+      selectedDays.push(day);
+      chip.classList.add('active');
+    }
+  });
+});
+
+photoToggle.addEventListener('change', () => {
+  photoFields.classList.toggle('hidden', !photoToggle.checked);
+  textField.classList.toggle('hidden', photoToggle.checked);
+});
+
+function buildLine(rule){
+  let content = rule.alert ? `alert: ${rule.text}` : rule.text;
+  if(rule.isPhoto){
+    content = `photo: ${rule.photoUrl}` + (rule.photoCaption ? ` | ${rule.photoCaption}` : '');
+    if(rule.alert) content = `alert: ${content}`;
+  }
+  if(rule.until) content = `until ${rule.until}: ${content}`;
+  if(rule.type === 'date') return `${rule.date}: ${content}`;
+  if(rule.type === 'weekday') return `${rule.days.join(',')}: ${content}`;
+  return content;
+}
+
+function badgeLabel(rule){
+  if(rule.type === 'date') return rule.date;
+  if(rule.type === 'weekday') return rule.days.join(', ');
+  return 'Every day';
+}
+
+async function loadRules(){
+  try{
+    const v = localStorage.getItem(STORAGE_KEY);
+    rules = v ? JSON.parse(v) : [];
+  }catch(e){ rules = []; }
+  render();
+}
+async function saveRules(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(rules)); }catch(e){}
+}
+
+// Reverse of buildLine: turn a gist text line back into a rule object
+function parseLineToRule(line){
+  let rest = line.trim();
+  let type = 'daily', days = [], date = '', until = '';
+
+  function takeUntil(s){
+    const m = s.match(/^until\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/i);
+    if(m){ until = m[1]; return m[2].trim(); }
+    return s;
+  }
+
+  rest = takeUntil(rest);
+
+  const dateMatch = rest.match(/^(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/);
+  const dayMatch = rest.match(/^((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:\s*,\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat))*)\s*:\s*(.+)$/i);
+  if(dateMatch){
+    type = 'date'; date = dateMatch[1]; rest = takeUntil(dateMatch[2].trim());
+  } else if(dayMatch){
+    type = 'weekday';
+    days = dayMatch[1].split(',').map(d => d.trim().slice(0,3).replace(/^\w/, c => c.toUpperCase()));
+    rest = takeUntil(dayMatch[2].trim());
+  }
+
+  let alert = false;
+  const alertMatch = rest.match(/^alert\s*:\s*(.+)$/i);
+  if(alertMatch){ alert = true; rest = alertMatch[1].trim(); }
+
+  const photoMatch = rest.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
+  if(photoMatch){
+    return { type, days, date, until, isPhoto:true, text:'', photoUrl:photoMatch[1].trim(), photoCaption:(photoMatch[2]||'').trim(), alert };
+  }
+  return { type, days, date, until, isPhoto:false, text:rest, photoUrl:'', photoCaption:'', alert };
+}
+
+const DAY_ORDER = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DAY_PLURAL = {
+  Sun:'Sundays', Mon:'Mondays', Tue:'Tuesdays', Wed:'Wednesdays',
+  Thu:'Thursdays', Fri:'Fridays', Sat:'Saturdays'
+};
+
+function ruleRow(rule, i){
+  const div = document.createElement('div');
+  div.className = 'list-item';
+  const desc = rule.isPhoto
+    ? `📷 ${rule.photoCaption || rule.photoUrl}`
+    : rule.text;
+  let badges = '';
+  if(rule.alert) badges += '<span class="badge">🔔 chimes</span>';
+  if(rule.until){
+    const expired = todayValue() > rule.until;
+    badges += `<span class="badge" style="color:${expired ? 'var(--clay)' : 'var(--ink-soft)'}">${expired ? 'expired ' : 'until '}${rule.until}</span>`;
+  }
+  div.innerHTML = `<div>${badges}<div class="txt" ${rule.until && todayValue() > rule.until ? 'style="opacity:.5;"' : ''}>${desc.replace(/</g,'&lt;')}</div></div><button data-i="${i}">Remove</button>`;
+  div.querySelector('button').addEventListener('click', async () => {
+    rules.splice(i, 1);
+    await saveRules();
+    render();
+  });
+  return div;
+}
+
+function makeSection(cls, title, count){
+  const sec = document.createElement('div');
+  sec.className = 'section ' + cls;
+  const t = document.createElement('div');
+  t.className = 'section-title';
+  t.innerHTML = `<span>${title}</span><span class="n">${count}</span>`;
+  sec.appendChild(t);
+  return sec;
+}
+
+function render(){
+  listEl.innerHTML = '';
+  const countBadge = document.getElementById('countBadge');
+  if(countBadge) countBadge.textContent = rules.length + ' total';
+
+  if(rules.length === 0){
+    listEl.innerHTML = '<div class="empty">Nothing in the file yet.</div>';
+    output.value = '';
+    return;
+  }
+
+  const indexed = rules.map((r, i) => ({ rule: r, i }));
+
+  const daily = indexed.filter(x => x.rule.type === 'daily');
+  if(daily.length){
+    const sec = makeSection('daily', 'Every day', daily.length);
+    daily.forEach(x => sec.appendChild(ruleRow(x.rule, x.i)));
+    listEl.appendChild(sec);
+  }
+
+  const weekly = indexed.filter(x => x.rule.type === 'weekday');
+  if(weekly.length){
+    const sec = makeSection('weekday', 'Certain days of the week', weekly.length);
+    DAY_ORDER.forEach(day => {
+      const forDay = weekly.filter(x => x.rule.days.includes(day));
+      if(forDay.length){
+        const lbl = document.createElement('div');
+        lbl.className = 'date-label';
+        lbl.style.color = 'var(--gold)';
+        lbl.textContent = DAY_PLURAL[day].toUpperCase();
+        sec.appendChild(lbl);
+        forDay.forEach(x => sec.appendChild(ruleRow(x.rule, x.i)));
+      }
+    });
+    listEl.appendChild(sec);
+  }
+
+  const dated = indexed.filter(x => x.rule.type === 'date')
+    .sort((a,b) => a.rule.date.localeCompare(b.rule.date));
+  if(dated.length){
+    const sec = makeSection('dated', 'Specific dates', dated.length);
+    dated.forEach(x => {
+      const lbl = document.createElement('div');
+      lbl.className = 'date-label';
+      lbl.textContent = x.rule.date;
+      sec.appendChild(lbl);
+      sec.appendChild(ruleRow(x.rule, x.i));
+    });
+    listEl.appendChild(sec);
+  }
+
+  output.value = rules.map(buildLine).join('\n');
+}
+
+// ---- .ics calendar import ----
+
+// iCal wraps long lines; a leading space or tab continues the previous one.
+function unfoldIcs(text){
+  return text.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '');
+}
+
+function unescapeIcs(v){
+  return v.replace(/\\n/gi, ' ').replace(/\\,/g, ',').replace(/\\;/g, ';').replace(/\\\\/g, '\\').trim();
+}
+
+// DTSTART:20260801T100000  /  DTSTART;TZID=...:20260801T100000  /  DTSTART;VALUE=DATE:20260801
+function parseIcsDate(raw){
+  const m = raw.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?)?/);
+  if(!m) return null;
+  return {
+    date: `${m[1]}-${m[2]}-${m[3]}`,
+    allDay: !m[4],
+    minutes: m[4] ? parseInt(m[4],10) * 60 + parseInt(m[5],10) : null
+  };
+}
+
+function fmtIcsTime(mins){
+  let h = Math.floor(mins / 60), m = mins % 60;
+  const mer = h >= 12 ? 'pm' : 'am';
+  let h12 = h % 12; if(h12 === 0) h12 = 12;
+  return h12 + ':' + String(m).padStart(2,'0') + ' ' + mer;
+}
+
+function parseIcs(text){
+  const lines = unfoldIcs(text).split('\n');
+  const events = [];
+  let cur = null;
+  lines.forEach(line => {
+    if(/^BEGIN:VEVENT/i.test(line)){ cur = {}; return; }
+    if(/^END:VEVENT/i.test(line)){
+      if(cur && cur.summary && cur.start) events.push(cur);
+      cur = null; return;
+    }
+    if(!cur) return;
+    const idx = line.indexOf(':');
+    if(idx < 0) return;
+    const name = line.slice(0, idx).split(';')[0].toUpperCase();
+    const value = line.slice(idx + 1);
+    if(name === 'SUMMARY') cur.summary = unescapeIcs(value);
+    else if(name === 'LOCATION') cur.location = unescapeIcs(value);
+    else if(name === 'DTSTART') cur.start = parseIcsDate(value);
+    else if(name === 'DTEND') cur.end = parseIcsDate(value);
+  });
+  return events;
+}
+
+function icsLineFor(ev, opts){
+  let title = ev.summary;
+  if(opts.location && ev.location) title += ' — ' + ev.location;
+  let timePart = '';
+  if(!ev.start.allDay && ev.start.minutes != null){
+    timePart = ' ' + fmtIcsTime(ev.start.minutes);
+    if(ev.end && !ev.end.allDay && ev.end.minutes != null && ev.end.date === ev.start.date){
+      timePart += '-' + fmtIcsTime(ev.end.minutes);
+    }
+  }
+  let content = title + timePart;
+  if(opts.alert) content = 'alert: ' + content;
+  return `${ev.start.date}: ${content}`;
+}
+
+let icsPending = [];
+
+document.getElementById('icsPreviewBtn').addEventListener('click', () => {
+  const fileInput = document.getElementById('icsFile');
+  const prev = document.getElementById('icsPreview');
+  const file = fileInput.files && fileInput.files[0];
+  if(!file){ prev.innerHTML = '<div class="empty" style="color:var(--clay)">Choose a .ics file first.</div>'; return; }
+
+  const from = document.getElementById('icsFrom').value;
+  const to   = document.getElementById('icsTo').value;
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    let events;
+    try{ events = parseIcs(reader.result); }
+    catch(e){ prev.innerHTML = '<div class="empty" style="color:var(--clay)">Could not read that file.</div>'; return; }
+
+    let inRange = events.filter(e => {
+      if(from && e.start.date < from) return false;
+      if(to && e.start.date > to) return false;
+      return true;
+    });
+    inRange.sort((a,b) => (a.start.date + String(a.start.minutes ?? 0).padStart(4,'0'))
+                  .localeCompare(b.start.date + String(b.start.minutes ?? 0).padStart(4,'0')));
+
+    const opts = {
+      location: document.getElementById('icsLocation').checked,
+      alert: document.getElementById('icsAlert').checked
+    };
+
+    // skip anything already in the list
+    const existing = new Set(rules.map(buildLine));
+    const newLines = [];
+    inRange.forEach(e => {
+      const line = icsLineFor(e, opts);
+      if(!existing.has(line)){ newLines.push(line); existing.add(line); }
+    });
+
+    if(events.length === 0){
+      prev.innerHTML = '<div class="empty" style="color:var(--clay)">No events found in that file.</div>';
+      return;
+    }
+    if(newLines.length === 0){
+      prev.innerHTML = `<div class="empty">Found ${events.length} event(s) in the file, but none new in that date range.</div>`;
+      return;
+    }
+
+    icsPending = newLines;
+    const byDay = {};
+    newLines.forEach(l => {
+      const d = l.slice(0, 10);
+      byDay[d] = (byDay[d] || 0) + 1;
+    });
+    const dayKeys = Object.keys(byDay).sort();
+    const sample = newLines.slice(0, 8);
+
+    prev.innerHTML =
+      `<div style="font-size:13px; color:var(--ink-soft); margin-bottom:8px;">` +
+      `File has ${events.length} event(s). ${newLines.length} new across ${dayKeys.length} day(s)` +
+      ` (${dayKeys[0]} to ${dayKeys[dayKeys.length-1]}).</div>` +
+      sample.map(l => `<div class="list-item"><div class="txt" style="font-size:13px;">${l.replace(/</g,'&lt;')}</div></div>`).join('') +
+      (newLines.length > sample.length ? `<div class="empty">…and ${newLines.length - sample.length} more</div>` : '') +
+      `<button class="add-btn" id="icsConfirm" style="margin-top:12px;">Add all ${newLines.length} to my list</button>`;
+
+    document.getElementById('icsConfirm').addEventListener('click', async () => {
+      icsPending.forEach(l => rules.push(parseLineToRule(l)));
+      await saveRules();
+      render();
+      prev.innerHTML = `<div class="empty" style="color:var(--green)">Added ${icsPending.length}. Push to gist below to publish.</div>`;
+      icsPending = [];
+    });
+  };
+  reader.readAsText(file);
+});
+
+// ---- Bulk import of a pasted calendar listing ----
+const TIME_RE = /^\s*(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?))\s*$/i;
+const INLINE_RANGE_RE = /(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\s*(?:-|–|—|to)\s*(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i;
+
+// Lines that are venue/organiser noise rather than event titles
+function isNoise(line){
+  return /activity calendar|activity room|^\s*theater\s*$|^\s*\d+(st|nd|rd|th)\s+floor/i.test(line);
+}
+
+function parseImport(text){
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const events = [];
+  let i = 0;
+  while(i < lines.length){
+    const line = lines[i];
+
+    // Pattern A: a time on its own line, optionally followed by an end time, then the title
+    if(TIME_RE.test(line)){
+      const start = line.trim();
+      let end = null, j = i + 1;
+      if(j < lines.length && TIME_RE.test(lines[j])){ end = lines[j].trim(); j++; }
+      // next non-noise line is the title
+      let title = null;
+      while(j < lines.length && !title){
+        if(TIME_RE.test(lines[j])) break;
+        if(!isNoise(lines[j])) title = lines[j].trim();
+        j++;
+      }
+      // skip any trailing noise
+      while(j < lines.length && !TIME_RE.test(lines[j]) && isNoise(lines[j])) j++;
+      if(title) events.push({ start, end, title });
+      i = j;
+      continue;
+    }
+
+    // Pattern B: title and time range on the same line
+    const inline = line.match(INLINE_RANGE_RE);
+    if(inline){
+      const title = line.replace(INLINE_RANGE_RE, '').replace(/[-–—,:]\s*$/, '').trim();
+      if(title) events.push({ start: inline[1].trim(), end: inline[2].trim(), title });
+      i++;
+      continue;
+    }
+
+    // Pattern C: title followed by a single time on the same line
+    const single = line.match(/(.+?)\s+(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?))\s*$/i);
+    if(single && single[1].trim() && !isNoise(single[1])){
+      events.push({ start: single[2].trim(), end: null, title: single[1].trim() });
+      i++;
+      continue;
+    }
+
+    i++;
+  }
+  return events;
+}
+
+function importLineFor(ev, date, alert){
+  const timePart = ev.end ? `${ev.start}-${ev.end}` : ev.start;
+  let content = `${ev.title} ${timePart}`;
+  if(alert) content = `alert: ${content}`;
+  return `${date}: ${content}`;
+}
+
+let pendingImport = [];
+
+document.getElementById('previewBtn').addEventListener('click', () => {
+  const date = document.getElementById('importDate').value;
+  const text = document.getElementById('importText').value;
+  const prev = document.getElementById('importPreview');
+  if(!date){ prev.innerHTML = '<div class="empty" style="color:var(--clay)">Pick the date these events are on.</div>'; return; }
+  if(!text.trim()){ prev.innerHTML = '<div class="empty" style="color:var(--clay)">Paste the calendar text first.</div>'; return; }
+
+  const events = parseImport(text);
+  if(events.length === 0){
+    prev.innerHTML = '<div class="empty" style="color:var(--clay)">Could not find any events in that text. Times need am/pm (e.g. "2:00 pm").</div>';
+    return;
+  }
+  pendingImport = events;
+  const alert = document.getElementById('importAlert').checked;
+  prev.innerHTML =
+    `<div style="font-size:13px; color:var(--ink-soft); margin-bottom:8px;">Found ${events.length} event(s):</div>` +
+    events.map(e => `<div class="list-item"><div><div class="txt">${(e.title).replace(/</g,'&lt;')}</div>` +
+      `<span class="badge" style="color:var(--ink-soft)">${e.start}${e.end ? ' – ' + e.end : ''}</span></div></div>`).join('') +
+    `<button class="add-btn" id="confirmImport" style="margin-top:12px;">Add these ${events.length} to my list</button>`;
+
+  document.getElementById('confirmImport').addEventListener('click', async () => {
+    pendingImport.forEach(ev => {
+      rules.push(parseLineToRule(importLineFor(ev, date, alert)));
+    });
+    await saveRules();
+    render();
+    prev.innerHTML = `<div class="empty" style="color:var(--green)">Added ${pendingImport.length}. Push to gist below to publish.</div>`;
+    document.getElementById('importText').value = '';
+    pendingImport = [];
+  });
+});
+
+function addWarn(msg){
+  const el = document.getElementById('addStatus');
+  if(!el) return;
+  el.style.color = 'var(--clay)';
+  el.textContent = msg;
+}
+
+document.getElementById('addBtn').addEventListener('click', async () => {
+  const isPhoto = photoToggle.checked;
+  if(isPhoto && !photoUrl.value.trim()){ addWarn('Enter an image URL first.'); return; }
+  if(!isPhoto && !textInput.value.trim()){ addWarn('Enter a message first.'); return; }
+  if(currentType === 'weekday' && selectedDays.length === 0){ addWarn('Pick at least one day of the week.'); return; }
+  if(currentType === 'date' && !dateInput.value){ addWarn('Pick a date.'); return; }
+
+  const rule = {
+    type: currentType,
+    days: [...selectedDays],
+    date: dateInput.value,
+    isPhoto,
+    text: textInput.value.trim(),
+    photoUrl: photoUrl.value.trim(),
+    photoCaption: photoCaption.value.trim(),
+    alert: alertToggle.checked,
+    until: untilInput.value || ''
+  };
+  rules.push(rule);
+  await saveRules();
+  render();
+  const st = document.getElementById('addStatus');
+  if(st){ st.style.color = 'var(--green)'; st.textContent = 'Added. Remember to Push to gist below.'; }
+
+  // reset form
+  textInput.value = '';
+  photoUrl.value = '';
+  photoCaption.value = '';
+  alertToggle.checked = false;
+  untilInput.value = '';
+  photoToggle.checked = false;
+  photoFields.classList.add('hidden');
+  textField.classList.remove('hidden');
+  selectedDays = [];
+  dayChips.forEach(c => c.classList.remove('active'));
+  dateInput.value = currentType === 'date' ? todayValue() : '';
+});
+
+document.getElementById('copyBtn').addEventListener('click', () => {
+  output.select();
+  document.execCommand('copy');
+  const msg = document.getElementById('copiedMsg');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 1500);
+});
+
+const GIST_META_KEY = 'reminder-editor-gist-meta';
+const gistIdInput = document.getElementById('gistId');
+const gistFilenameInput = document.getElementById('gistFilename');
+const gistTokenInput = document.getElementById('gistToken');
+const pushBtn = document.getElementById('pushBtn');
+const pushStatus = document.getElementById('pushStatus');
+
+async function loadGistMeta(){
+  try{
+    const v = localStorage.getItem(GIST_META_KEY);
+    if(v){
+      const meta = JSON.parse(v);
+      if(meta.gistId) gistIdInput.value = meta.gistId;
+      if(meta.filename) gistFilenameInput.value = meta.filename;
+      if(meta.rawUrl) document.getElementById('rawUrl').value = meta.rawUrl;
+      if(meta.token){
+        gistTokenInput.value = meta.token;
+        document.getElementById('rememberToken').checked = true;
+      }
+    }
+  }catch(e){}
+  applyCollapse();
+}
+
+function applyCollapse(){
+  const configured = gistIdInput.value.trim() && gistFilenameInput.value.trim() && gistTokenInput.value.trim();
+  document.getElementById('connFields').style.display = configured ? 'none' : '';
+  document.getElementById('connToggleWrap').style.display = configured ? 'block' : 'none';
+}
+
+document.getElementById('connToggle').addEventListener('click', (e) => {
+  e.preventDefault();
+  const fields = document.getElementById('connFields');
+  fields.style.display = fields.style.display === 'none' ? '' : 'none';
+});
+async function saveGistMeta(){
+  try{
+    const remember = document.getElementById('rememberToken').checked;
+    localStorage.setItem(GIST_META_KEY, JSON.stringify({
+      gistId: gistIdInput.value.trim(),
+      filename: gistFilenameInput.value.trim(),
+      rawUrl: (document.getElementById('rawUrl').value || '').trim(),
+      token: remember ? gistTokenInput.value.trim() : ''
+    }));
+  }catch(e){}
+}
+
+function setSourceBanner(state, detail){
+  const el = document.getElementById('sourceBanner');
+  if(!el) return;
+  if(state === 'live'){
+    el.style.background = 'rgba(62,122,87,0.1)';
+    el.style.color = 'var(--green)';
+    el.textContent = '✓ Showing your live gist file — loaded ' + detail;
+  } else if(state === 'stale'){
+    el.style.background = 'rgba(193,84,58,0.1)';
+    el.style.color = 'var(--clay)';
+    el.textContent = '⚠ Showing a local cached copy, not your gist. ' + (detail || '') + ' Click "Reload from gist" below.';
+  } else {
+    el.style.background = 'transparent';
+    el.style.color = 'var(--ink-soft)';
+    el.textContent = detail || '';
+  }
+}
+
+async function pullFromGist(silent){
+  const gistId = gistIdInput.value.trim();
+  const filename = gistFilenameInput.value.trim();
+  const token = gistTokenInput.value.trim();
+  const rawUrl = (document.getElementById('rawUrl').value || '').trim();
+
+  if(!silent){
+    pushStatus.style.color = 'var(--ink-soft)';
+    pushStatus.textContent = 'Loading…';
+  }
+
+  const attempts = [];
+  if(rawUrl) attempts.push({ label:'raw URL', run: async () => {
+    const res = await fetch(rawUrl + (rawUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now(), { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.text();
+  }});
+  if(gistId && filename && token) attempts.push({ label:'GitHub API', run: async () => {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { 'Authorization': `token ${token}`, 'Accept': 'application/vnd.github+json' },
+      cache: 'no-store'
+    });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const file = data.files && data.files[filename];
+    if(!file) throw new Error('File "' + filename + '" not in that gist');
+    return file.content || '';
+  }});
+
+  if(attempts.length === 0){
+    setSourceBanner('stale', 'No raw URL or token entered, so the gist has not been read.');
+    return false;
+  }
+
+  const errors = [];
+  for(const attempt of attempts){
+    try{
+      const content = await attempt.run();
+      rules = content.split('\n').map(l => l.trim()).filter(Boolean).map(parseLineToRule);
+      await saveRules();
+      render();
+      pushStatus.style.color = 'var(--green)';
+      pushStatus.textContent = 'Loaded ' + rules.length + ' reminder(s) via ' + attempt.label + '.';
+      setSourceBanner('live', new Date().toLocaleTimeString() + ' via ' + attempt.label);
+      return true;
+    }catch(e){
+      errors.push(attempt.label + ': ' + e.message);
+    }
+  }
+
+  setSourceBanner('stale', 'Tried ' + errors.join(' / ') + '.');
+  if(!silent){
+    pushStatus.style.color = 'var(--clay)';
+    pushStatus.textContent = 'Could not load. ' + errors.join(' / ');
+  }
+  return false;
+}
+
+document.getElementById('pullBtn').addEventListener('click', () => pullFromGist(false));
+
+pushBtn.addEventListener('click', async () => {
+  const gistId = gistIdInput.value.trim();
+  const filename = gistFilenameInput.value.trim();
+  const token = gistTokenInput.value.trim();
+  if(!gistId || !filename || !token){
+    pushStatus.style.color = 'var(--clay)';
+    pushStatus.textContent = 'Fill in Gist ID, filename, and token first.';
+    return;
+  }
+  await saveGistMeta();
+  pushStatus.style.color = 'var(--ink-soft)';
+  pushStatus.textContent = 'Pushing…';
+  try{
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Accept': 'application/vnd.github+json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        files: { [filename]: { content: output.value } }
+      })
+    });
+    if(!res.ok){
+      const err = await res.json().catch(() => ({}));
+      let detail = err.message || res.status;
+      if(err.errors && err.errors.length){
+        detail += ' — ' + err.errors.map(e => `${e.resource || ''} ${e.field || ''} ${e.code || ''}`.trim()).join('; ');
+      }
+      if(res.status === 404) detail += ' (check the Gist ID, or the token may lack gist scope)';
+      if(res.status === 401) detail += ' (token invalid or expired)';
+      if(res.status === 422 && output.value.trim() === '') detail += ' (your list is empty — add at least one reminder first)';
+      throw new Error(detail);
+    }
+    pushStatus.style.color = 'var(--green)';
+    pushStatus.textContent = 'Pushed! Your board will sync within 30 seconds.';
+    if(!document.getElementById('rememberToken').checked) gistTokenInput.value = '';
+    applyCollapse();
+  }catch(e){
+    pushStatus.style.color = 'var(--clay)';
+    pushStatus.textContent = 'Failed: ' + e.message;
+  }
+});
+
+document.getElementById('importDate').value = todayValue();
+(function initIcsRange(){
+  const d = new Date();
+  document.getElementById('icsFrom').value = todayValue();
+  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 30);
+  document.getElementById('icsTo').value = t.getFullYear() + '-' + String(t.getMonth()+1).padStart(2,'0') + '-' + String(t.getDate()).padStart(2,'0');
+})();
+
+loadGistMeta().then(async () => {
+  await loadRules();
+  // If credentials are present, sync the editor to the live gist so pushes amend rather than overwrite
+  await pullFromGist(true);
+});
+</script>
+</body>
+</html>
