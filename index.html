@@ -63,7 +63,7 @@
     flex:1; display:flex; align-items:center; justify-content:center;
     padding: 2.5vw 8vw; position:relative; cursor:pointer;
   }
-  .card{ text-align:center; max-width:1000px; }
+  .card{ text-align:center; max-width:1000px; width:100%; }
   .new-badge{
     display:inline-block;
     font-size:12px; letter-spacing:.16em; text-transform:uppercase;
@@ -90,17 +90,17 @@
   }
   .sched-row{
     display:flex; gap: clamp(14px,2vw,30px); align-items:baseline;
-    padding: clamp(6px,0.9vw,12px) 0;
+    padding: var(--row-pad, clamp(6px,0.9vw,12px)) 0;
   }
   .sched-time{
     font-family:'Space Grotesk', sans-serif; font-weight:500;
-    font-size: clamp(16px,1.9vw,28px);
+    font-size: var(--time-size, clamp(16px,1.9vw,28px));
     color: var(--ink-soft); letter-spacing:.03em;
     flex:0 0 clamp(100px,10vw,170px); text-align:right;
   }
   .sched-label{
     font-family:'Fraunces', serif; font-weight:500;
-    font-size: clamp(24px,3.2vw,48px); line-height:1.2;
+    font-size: var(--label-size, clamp(24px,3.2vw,48px)); line-height:1.2;
   }
   .sched-row.past{ opacity:.32; }
   .sched-row.past .sched-label{ text-decoration:line-through; text-decoration-thickness:1px; }
@@ -109,7 +109,7 @@
 
   .sched-now{
     display:flex; align-items:center; gap:12px;
-    padding: clamp(6px,0.9vw,12px) 0;
+    padding: var(--row-pad, clamp(6px,0.9vw,12px)) 0;
     margin-left: clamp(100px,10vw,170px);
   }
   .now-pill{
@@ -333,7 +333,7 @@
           <span style="font-size:13px; color:var(--ink-soft);">minutes</span>
         </div>
         <div class="field-row">
-          <label for="summaryToggle" style="margin:0;">Show summary pages</label>
+          <label for="summaryToggle" style="margin:0;">Show today's schedule page</label>
           <input type="checkbox" id="summaryToggle" style="width:18px; height:18px;">
         </div>
         <div class="field-row">
@@ -344,7 +344,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "until 2026-09-01:" = stops after that date · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 17 — time ranges</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 18 — single schedule page</div>
       </div>
     </div>
   </div>
@@ -509,14 +509,6 @@ function summaryLabel(r){
   return r.kind === 'photo' ? (r.caption || 'Photo') : r.text;
 }
 
-// Every-day items — standing notes, no schedule attached
-function buildRemindersPage(){
-  const items = itemsForDate(effectiveDate())
-    .filter(r => r.type === 'daily')
-    .map(summaryLabel);
-  return { kind:'summary', title:'Reminders', items, raw:'__reminders__' };
-}
-
 function fmtTime(mins){
   let h = Math.floor(mins / 60), m = mins % 60;
   const mer = h >= 12 ? 'PM' : 'AM';
@@ -558,24 +550,6 @@ function buildSchedulePage(){
   return { kind:'schedule', title:"Today's schedule", rows, raw:'__schedule__' };
 }
 
-// The next six days
-function buildScheduledPage(){
-  const start = effectiveDate();
-  const days = [];
-  for(let i = 1; i <= 6; i++){
-    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
-    const items = scheduledForDate(d);
-    if(items.length){
-      days.push({
-        day: d.toLocaleDateString(undefined, { weekday: 'long' }),
-        dayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-        items: items.map(summaryLabel)
-      });
-    }
-  }
-  return { kind:'week', title:'Scheduled', days, raw:'__scheduled__' };
-}
-
 function computeActive(){
   const parsed = rules.map(parseRule).filter(r => r.kind === 'photo' ? r.imageUrl : r.text);
   const today = todayISO();
@@ -585,15 +559,9 @@ function computeActive(){
     if(r.until && today > r.until) return false;
     if(r.type === 'date' && r.date !== today) return false;
     if(r.type === 'weekday' && !r.days.includes(weekdayName)) return false;
-    // past its clock time (plus grace)?
+    // Anything with a clock time belongs on the schedule page, not the rotation
     const t = extractTime(r.kind === 'photo' ? (r.caption || '') : (r.text || ''));
-    if(t){
-      const now = new Date();
-      const nowMinutes = now.getHours() * 60 + now.getMinutes();
-      const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
-      const endsAt = (t.end != null ? t.end : t.minutes) + grace;
-      if(nowMinutes > endsAt) return false;
-    }
+    if(t) return false;
     return true;
   });
   return pool.map(r => ({ kind:r.kind, text:r.text, imageUrl:r.imageUrl, caption:r.caption, alert:r.alert, raw:r.raw }));
@@ -604,14 +572,8 @@ let lastActiveKey = null;
 function refreshActive(force){
   let next = computeActive();
   if(settings.showSummaries !== false){
-    const pages = [];
-    const sched0 = buildSchedulePage();
-    if(sched0.rows && sched0.rows.length) pages.push(sched0);
-    const rem = buildRemindersPage();
-    if(rem.items.length) pages.push(rem);
-    const sched = buildScheduledPage();
-    if(sched.days.length) pages.push(sched);
-    next = pages.concat(next);
+    const sched = buildSchedulePage();
+    if(sched.rows && sched.rows.length) next = [sched].concat(next);
   }
 
   // Build a comparison key that ignores the minute-by-minute NOW clock,
@@ -754,12 +716,20 @@ function showCurrent(skipAnim){
   if(nb) nb.innerHTML = isNew(item.raw) ? '<span class="new-badge">New</span>' : '';
 
   if(item.kind === 'schedule'){
-    contentEl.innerHTML = `<div class="summary-title">${escapeHtml(item.title)}</div>` +
-      `<div class="sched-wrap">` +
+    // Scale to fit: the more rows, the smaller the type
+    const n = item.rows.length;
+    let labelSize, timeSize, rowPad, titleSize;
+    if(n <= 5){      labelSize='clamp(26px,3.4vw,50px)'; timeSize='clamp(16px,1.9vw,28px)'; rowPad='clamp(6px,0.9vw,12px)'; titleSize='clamp(28px,4vw,54px)'; }
+    else if(n <= 8){ labelSize='clamp(22px,2.7vw,40px)'; timeSize='clamp(14px,1.6vw,23px)'; rowPad='clamp(4px,0.6vw,9px)';  titleSize='clamp(24px,3.2vw,44px)'; }
+    else if(n <= 11){labelSize='clamp(18px,2.1vw,31px)'; timeSize='clamp(12px,1.35vw,19px)';rowPad='clamp(3px,0.4vw,6px)';  titleSize='clamp(20px,2.6vw,36px)'; }
+    else {           labelSize='clamp(15px,1.7vw,25px)'; timeSize='clamp(11px,1.15vw,16px)';rowPad='2px';                   titleSize='clamp(18px,2.2vw,30px)'; }
+
+    contentEl.innerHTML =
+      `<div class="summary-title" style="font-size:${titleSize}; margin-bottom:${n > 8 ? '10px' : '18px'};">${escapeHtml(item.title)}</div>` +
+      `<div class="sched-wrap" style="--label-size:${labelSize}; --time-size:${timeSize}; --row-pad:${rowPad};">` +
       item.rows.map(r => {
         if(r.type === 'now'){
-          return `<div class="sched-now"><span class="now-pill">Now</span>` +
-                 `<span class="now-line"></span></div>`;
+          return `<div class="sched-now"><span class="now-pill">Now</span><span class="now-line"></span></div>`;
         }
         const cls = 'sched-row' + (r.past ? ' past' : '') + (r.current ? ' current' : '');
         return `<div class="${cls}">` +
