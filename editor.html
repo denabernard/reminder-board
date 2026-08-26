@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -212,6 +211,14 @@
       <textarea id="textInput" placeholder="Take your vitamins"></textarea>
     </div>
 
+    <div id="schedLabelField" class="field">
+      <label>Short label for the schedule (optional)</label>
+      <input type="text" id="schedLabelInput" placeholder="Hair cut">
+      <div style="font-size:11px; color:var(--ink-soft); margin-top:4px; line-height:1.4;">
+        If the message has a time in it, adding a short label puts it on the day's schedule too — the full message keeps rotating, the schedule shows just this label.
+      </div>
+    </div>
+
     <div id="photoFields" class="hidden">
       <div class="field">
         <label>Image URL</label>
@@ -290,6 +297,7 @@ const dayChips = document.querySelectorAll('.day-chip');
 const photoToggle = document.getElementById('photoToggle');
 const textField = document.getElementById('textField');
 const textInput = document.getElementById('textInput');
+const schedLabelInput = document.getElementById('schedLabelInput');
 const photoFields = document.getElementById('photoFields');
 const photoUrl = document.getElementById('photoUrl');
 const photoCaption = document.getElementById('photoCaption');
@@ -330,10 +338,13 @@ dayChips.forEach(chip => {
 photoToggle.addEventListener('change', () => {
   photoFields.classList.toggle('hidden', !photoToggle.checked);
   textField.classList.toggle('hidden', photoToggle.checked);
+  document.getElementById('schedLabelField').classList.toggle('hidden', photoToggle.checked);
 });
 
 function buildLine(rule){
-  let content = rule.alert ? `alert: ${rule.text}` : rule.text;
+  let base = rule.text;
+  if(rule.schedLabel) base = `${rule.text} | ${rule.schedLabel}`;
+  let content = rule.alert ? `alert: ${base}` : base;
   if(rule.isPhoto){
     content = `photo: ${rule.photoUrl}` + (rule.photoCaption ? ` | ${rule.photoCaption}` : '');
     if(rule.alert) content = `alert: ${content}`;
@@ -390,9 +401,16 @@ function parseLineToRule(line){
 
   const photoMatch = rest.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
   if(photoMatch){
-    return { type, days, date, until, isPhoto:true, text:'', photoUrl:photoMatch[1].trim(), photoCaption:(photoMatch[2]||'').trim(), alert };
+    return { type, days, date, until, isPhoto:true, text:'', schedLabel:'', photoUrl:photoMatch[1].trim(), photoCaption:(photoMatch[2]||'').trim(), alert };
   }
-  return { type, days, date, until, isPhoto:false, text:rest, photoUrl:'', photoCaption:'', alert };
+  let schedLabel = '';
+  const parts = rest.split('|');
+  if(parts.length >= 2){
+    const lbl = parts.pop().trim();
+    const msg = parts.join('|').trim();
+    if(msg && lbl){ rest = msg; schedLabel = lbl; }
+  }
+  return { type, days, date, until, isPhoto:false, text:rest, schedLabel, photoUrl:'', photoCaption:'', alert };
 }
 
 const DAY_ORDER = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -749,6 +767,7 @@ document.getElementById('addBtn').addEventListener('click', async () => {
     photoUrl: photoUrl.value.trim(),
     photoCaption: photoCaption.value.trim(),
     alert: alertToggle.checked,
+    schedLabel: (schedLabelInput.value || '').trim(),
     until: untilInput.value || ''
   };
   rules.push(rule);
@@ -763,6 +782,7 @@ document.getElementById('addBtn').addEventListener('click', async () => {
   photoCaption.value = '';
   alertToggle.checked = false;
   untilInput.value = '';
+  schedLabelInput.value = '';
   photoToggle.checked = false;
   photoFields.classList.add('hidden');
   textField.classList.remove('hidden');
