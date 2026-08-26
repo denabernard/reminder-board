@@ -15,6 +15,22 @@
     --clay:#E8734F;
     --line: rgba(255,255,255,0.14);
   }
+  body.light-theme{
+    --linen:#FFFFFF;
+    --ink:#111111;
+    --ink-soft:#5F6360;
+    --gold:#8A6410;
+    --clay:#B04124;
+    --line: rgba(0,0,0,0.16);
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(138,100,16,0.06), transparent 55%),
+      radial-gradient(ellipse at 80% 100%, rgba(176,65,36,0.05), transparent 55%),
+      #FFFFFF;
+  }
+  body.light-theme .new-badge{ color:#fff; }
+  body.light-theme .now-pill{ color:#fff; }
+  body.light-theme .save-btn{ background:var(--ink); color:#fff; }
+  body.light-theme .week-day .what{ border-left-color: rgba(0,0,0,0.18); }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{height:100%; margin:0;}
   body{
@@ -333,6 +349,13 @@
           <span style="font-size:13px; color:var(--ink-soft);">minutes</span>
         </div>
         <div class="field-row">
+          <label for="themeSelect" style="margin:0;">Colors</label>
+          <select id="themeSelect" style="padding:8px 10px; border-radius:8px; border:1px solid var(--line); font-family:'Space Grotesk',sans-serif; font-size:13px; color:#1C1F1E; background:#fff;">
+            <option value="dark">White text on black</option>
+            <option value="light">Black text on white</option>
+          </select>
+        </div>
+        <div class="field-row">
           <label for="summaryToggle" style="margin:0;">Show today's schedule page</label>
           <input type="checkbox" id="summaryToggle" style="width:18px; height:18px;">
         </div>
@@ -344,7 +367,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "until 2026-09-01:" = stops after that date · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 18 — single schedule page</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 20 — light/dark option</div>
       </div>
     </div>
   </div>
@@ -354,7 +377,7 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60 };
+let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark' };
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
@@ -371,6 +394,7 @@ const newMinutesInput = document.getElementById('newMinutes');
 const dayStartInput = document.getElementById('dayStart');
 const summaryToggleInput = document.getElementById('summaryToggle');
 const graceInput = document.getElementById('graceMinutes');
+const themeSelect = document.getElementById('themeSelect');
 
 const defaultRules = [
   "Take your vitamins",
@@ -408,7 +432,17 @@ function parseContent(text){
   if(photoMatch){
     return { kind: 'photo', imageUrl: photoMatch[1].trim(), caption: (photoMatch[2] || '').trim(), alert };
   }
-  return { kind: 'text', text: body, alert };
+  // "Full message | Short label" — the short label is what the schedule shows,
+  // and the full message keeps its place in the rotation.
+  const parts = body.split('|');
+  if(parts.length >= 2){
+    const label = parts.pop().trim();
+    const message = parts.join('|').trim();
+    if(message && label){
+      return { kind: 'text', text: message, schedLabel: label, alert };
+    }
+  }
+  return { kind: 'text', text: body, schedLabel: null, alert };
 }
 
 // Strips a leading "until YYYY-MM-DD:" token if present
@@ -523,7 +557,10 @@ function buildSchedulePage(){
   const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
 
   const timed = itemsForDate(effectiveDate())
-    .map(r => ({ label: summaryLabel(r), t: extractTime(summaryLabel(r)) }))
+    .map(r => ({
+      label: r.schedLabel || summaryLabel(r),
+      t: extractTime(summaryLabel(r))
+    }))
     .filter(x => x.t)
     .sort((a,b) => a.t.minutes - b.t.minutes);
 
@@ -559,12 +596,22 @@ function computeActive(){
     if(r.until && today > r.until) return false;
     if(r.type === 'date' && r.date !== today) return false;
     if(r.type === 'weekday' && !r.days.includes(weekdayName)) return false;
-    // Anything with a clock time belongs on the schedule page, not the rotation
+
     const t = extractTime(r.kind === 'photo' ? (r.caption || '') : (r.text || ''));
-    if(t) return false;
+    if(t){
+      // A short schedule label means it's a real reminder that also has a time:
+      // keep it rotating until its time passes. Otherwise it's a calendar entry,
+      // which belongs only on the schedule page.
+      if(!r.schedLabel) return false;
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
+      const endsAt = (t.end != null ? t.end : t.minutes) + grace;
+      if(nowMinutes > endsAt) return false;
+    }
     return true;
   });
-  return pool.map(r => ({ kind:r.kind, text:r.text, imageUrl:r.imageUrl, caption:r.caption, alert:r.alert, raw:r.raw }));
+  return pool.map(r => ({ kind:r.kind, text:r.text, schedLabel:r.schedLabel, imageUrl:r.imageUrl, caption:r.caption, alert:r.alert, raw:r.raw }));
 }
 
 let lastActiveKey = null;
@@ -630,11 +677,15 @@ function isNew(raw){
   return (Date.now() - t) < mins * 60 * 1000;
 }
 
+function applyTheme(){
+  document.body.classList.toggle('light-theme', settings.theme === 'light');
+}
+
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60 }; }
-  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60 }; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark' }; }
+  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark' }; }
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
@@ -806,6 +857,8 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   let gm = parseInt(graceInput.value, 10);
   if(isNaN(gm) || gm < 0) gm = 0;
   settings.graceMinutes = gm;
+  settings.theme = themeSelect.value;
+  applyTheme();
   saveLocal();
   startRotation();
   scheduleMidnightRefresh();
@@ -848,6 +901,8 @@ function init(){
   dayStartInput.value = settings.dayStartHour != null ? settings.dayStartHour : 7;
   summaryToggleInput.checked = settings.showSummaries !== false;
   graceInput.value = settings.graceMinutes != null ? settings.graceMinutes : 60;
+  themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
+  applyTheme();
   refreshActive();
   startRotation();
   scheduleMidnightRefresh();
