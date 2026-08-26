@@ -30,27 +30,48 @@
     flex-direction:column;
   }
   .topbar{
-    display:flex; justify-content:space-between; align-items:flex-start;
-    padding: clamp(20px,4vw,44px) clamp(24px,5vw,56px) 0;
-    flex-shrink:0;
+    display:flex; flex-direction:column; align-items:center;
+    padding: clamp(18px,3.5vw,40px) clamp(24px,5vw,56px) 0;
+    flex-shrink:0; text-align:center;
   }
   .eyebrow{
-    font-size:12px; letter-spacing:.18em; text-transform:uppercase;
-    color:var(--ink-soft); font-weight:500;
+    font-size:clamp(13px,1.5vw,20px); letter-spacing:.2em; text-transform:uppercase;
+    color:var(--ink-soft); font-weight:500; margin-bottom:6px;
   }
-  .clock{ text-align:right; }
-  .clock .time{
-    font-family:'Fraunces', serif; font-weight:500; font-size:clamp(22px,3vw,32px);
-    line-height:1;
+  .today-is{
+    font-family:'Fraunces', serif; font-weight:600;
+    font-size:clamp(42px,7vw,110px);
+    line-height:0.98; letter-spacing:-0.015em;
   }
-  .clock .date{
-    font-size:12px; color:var(--ink-soft); margin-top:4px; letter-spacing:.03em;
+  .today-is .lead{
+    display:block;
+    font-family:'Space Grotesk', sans-serif; font-weight:400;
+    font-size:clamp(15px,1.8vw,26px);
+    letter-spacing:.22em; text-transform:uppercase;
+    color:var(--ink-soft); margin-bottom:6px;
   }
+  .footbar{
+    display:flex; justify-content:center; align-items:baseline;
+    gap: clamp(12px,2vw,26px);
+    padding-bottom: clamp(14px,2vw,26px);
+    flex-shrink:0; color:var(--ink-soft);
+    font-family:'Space Grotesk', sans-serif;
+    font-size:clamp(13px,1.5vw,20px); letter-spacing:.05em;
+  }
+  .footbar .sep{ opacity:.4; }
   .stage{
     flex:1; display:flex; align-items:center; justify-content:center;
-    padding: 4vw 8vw; position:relative; cursor:pointer;
+    padding: 2.5vw 8vw; position:relative; cursor:pointer;
   }
   .card{ text-align:center; max-width:1000px; }
+  .new-badge{
+    display:inline-block;
+    font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+    color:#000; background:var(--clay);
+    border-radius:999px; padding:5px 14px;
+    margin-left:10px; font-weight:600;
+    vertical-align:middle;
+  }
   .card .tag{
     display:inline-block;
     font-size:12px; letter-spacing:.16em; text-transform:uppercase;
@@ -62,10 +83,100 @@
     opacity:0; transform:translateY(6px);
     animation: rise .6s .05s ease forwards;
   }
+  .sched-wrap{
+    text-align:left; width:100%;
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .12s ease forwards;
+  }
+  .sched-row{
+    display:flex; gap: clamp(14px,2vw,30px); align-items:baseline;
+    padding: clamp(6px,0.9vw,12px) 0;
+  }
+  .sched-time{
+    font-family:'Space Grotesk', sans-serif; font-weight:500;
+    font-size: clamp(16px,1.9vw,28px);
+    color: var(--ink-soft); letter-spacing:.03em;
+    flex:0 0 clamp(100px,10vw,170px); text-align:right;
+  }
+  .sched-label{
+    font-family:'Fraunces', serif; font-weight:500;
+    font-size: clamp(24px,3.2vw,48px); line-height:1.2;
+  }
+  .sched-row.past{ opacity:.32; }
+  .sched-row.past .sched-label{ text-decoration:line-through; text-decoration-thickness:1px; }
+  .sched-row.current .sched-label{ color: var(--gold); }
+  .sched-row.current .sched-time{ color: var(--gold); }
+
+  .sched-now{
+    display:flex; align-items:center; gap:12px;
+    padding: clamp(6px,0.9vw,12px) 0;
+    margin-left: clamp(100px,10vw,170px);
+  }
+  .now-pill{
+    font-family:'Space Grotesk', sans-serif; font-weight:600;
+    font-size: clamp(13px,1.4vw,20px);
+    letter-spacing:.18em; text-transform:uppercase;
+    background: var(--clay); color:#000;
+    border-radius:999px; padding:4px 14px;
+    flex-shrink:0;
+  }
+  .now-line{
+    flex:1; height:2px; background: var(--clay); opacity:.55;
+  }
+  .now-time{
+    font-family:'Space Grotesk', sans-serif;
+    font-size: clamp(13px,1.4vw,20px);
+    color: var(--clay); flex-shrink:0;
+  }
+  .summary-title{
+    font-family:'Fraunces', serif; font-weight:500;
+    font-size: clamp(30px, 4.5vw, 60px);
+    color: var(--gold);
+    margin-bottom: clamp(16px, 2.5vw, 30px);
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .05s ease forwards;
+  }
+  .summary-list{
+    list-style:none; padding:0; margin:0;
+    display:flex; flex-direction:column; gap: clamp(10px,1.6vw,20px);
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .12s ease forwards;
+  }
+  .summary-list li{
+    font-family:'Fraunces', serif;
+    font-size: clamp(26px, 3.8vw, 54px);
+    line-height:1.2;
+  }
+  .week-day{
+    text-align:left; margin-bottom: clamp(16px,2.2vw,32px);
+  }
+  .week-day .dow{
+    font-family:'Fraunces', serif; font-weight:600;
+    font-size: clamp(28px,4vw,60px);
+    color: var(--gold); line-height:1.05;
+    margin-bottom: 4px;
+  }
+  .dow-date{
+    font-family:'Space Grotesk', sans-serif; font-weight:400;
+    font-size: clamp(14px,1.5vw,22px);
+    color: var(--ink-soft); letter-spacing:.04em;
+    margin-left: 8px;
+  }
+  .week-day .what{
+    font-family:'Fraunces', serif; font-weight:500;
+    font-size: clamp(20px,2.6vw,38px); line-height:1.25;
+    padding-left: clamp(10px,1.4vw,20px);
+    border-left: 2px solid rgba(255,255,255,0.18);
+  }
+  .week-wrap{
+    text-align:left;
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .12s ease forwards;
+  }
   .card .message{
     font-family:'Fraunces', serif;
     font-weight:500;
-    font-size: clamp(48px, 9vw, 140px);
+    font-size: clamp(38px, 6.5vw, 96px);
     line-height:1.12;
     letter-spacing:-.01em;
     opacity:0; transform:translateY(10px);
@@ -166,18 +277,23 @@
 <body>
 
   <div class="topbar">
-    <div class="eyebrow">Reminders</div>
-    <div class="clock">
-      <div class="time" id="time">--:--</div>
-      <div class="date" id="date">-</div>
+    <div class="today-is">
+      <span class="lead">Today is</span>
+      <span id="dayName">-</span>
     </div>
   </div>
 
   <div class="stage" id="stage">
     <div class="card">
-      <div class="tag" id="tag">Today</div>
+      <div class="tag" id="tag">Today</div><span id="newBadge"></span>
       <div id="content"><div class="message">Loading…</div></div>
     </div>
+  </div>
+
+  <div class="footbar">
+    <span id="date">-</span>
+    <span class="sep">·</span>
+    <span id="time">--:--</span>
   </div>
 
   <div class="dots" id="dots"></div>
@@ -202,14 +318,33 @@
           <span style="font-size:13px; color:var(--ink-soft);">seconds</span>
         </div>
         <div class="field-row">
+          <label for="dayStart" style="margin:0;">New day starts at</label>
+          <input type="number" id="dayStart" min="0" max="23" value="7">
+          <span style="font-size:13px; color:var(--ink-soft);">:00 (24hr)</span>
+        </div>
+        <div class="field-row">
+          <label for="newMinutes" style="margin:0;">Flag as "New" for</label>
+          <input type="number" id="newMinutes" min="0" max="10080" value="1440">
+          <span style="font-size:13px; color:var(--ink-soft);">minutes (0 = off)</span>
+        </div>
+        <div class="field-row">
+          <label for="graceMinutes" style="margin:0;">Keep showing past events for</label>
+          <input type="number" id="graceMinutes" min="0" max="720" value="60">
+          <span style="font-size:13px; color:var(--ink-soft);">minutes</span>
+        </div>
+        <div class="field-row">
+          <label for="summaryToggle" style="margin:0;">Show summary pages</label>
+          <input type="checkbox" id="summaryToggle" style="width:18px; height:18px;">
+        </div>
+        <div class="field-row">
           <label for="soundToggle" style="margin:0;">Play sound on alerts</label>
           <input type="checkbox" id="soundToggle" style="width:18px; height:18px;">
         </div>
         <div class="hint">
-          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date (overrides that day entirely) · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
+          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "until 2026-09-01:" = stops after that date · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 6 — photo+alert fix</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 17 — time ranges</div>
       </div>
     </div>
   </div>
@@ -219,7 +354,7 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false };
+let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60 };
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
@@ -232,6 +367,10 @@ const panel = document.getElementById('panel');
 const intervalInput = document.getElementById('interval');
 const remoteUrlInput = document.getElementById('remoteUrl');
 const soundToggleInput = document.getElementById('soundToggle');
+const newMinutesInput = document.getElementById('newMinutes');
+const dayStartInput = document.getElementById('dayStart');
+const summaryToggleInput = document.getElementById('summaryToggle');
+const graceInput = document.getElementById('graceMinutes');
 
 const defaultRules = [
   "Take your vitamins",
@@ -243,8 +382,19 @@ const defaultRules = [
 const WEEKDAY_ABBR = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
 function pad(n){ return n < 10 ? '0'+n : ''+n; }
-function todayISO(){
+
+// The "current day" for scheduling purposes rolls over at settings.dayStartHour, not midnight.
+function effectiveDate(){
   const d = new Date();
+  const startHour = (settings.dayStartHour != null) ? settings.dayStartHour : 7;
+  if(d.getHours() < startHour){
+    d.setDate(d.getDate() - 1);
+  }
+  return d;
+}
+
+function todayISO(){
+  const d = effectiveDate();
   return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
 }
 
@@ -261,30 +411,219 @@ function parseContent(text){
   return { kind: 'text', text: body, alert };
 }
 
+// Strips a leading "until YYYY-MM-DD:" token if present
+function stripUntil(text){
+  const m = text.match(/^until\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/i);
+  if(m) return { until: m[1], rest: m[2].trim() };
+  return { until: null, rest: text };
+}
+
 function parseRule(line){
-  const dateMatch = line.match(/^(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/);
-  if(dateMatch) return Object.assign({ type:'date', date:dateMatch[1] }, parseContent(dateMatch[2].trim()));
-  const dayMatch = line.match(/^((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:\s*,\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat))*)\s*:\s*(.+)$/i);
+  let working = line.trim();
+  let until = null;
+
+  // "until" may appear before the schedule prefix
+  const leading = stripUntil(working);
+  if(leading.until){ until = leading.until; working = leading.rest; }
+
+  const dateMatch = working.match(/^(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/);
+  if(dateMatch){
+    const inner = stripUntil(dateMatch[2].trim());
+    return Object.assign({ type:'date', date:dateMatch[1], until: until || inner.until, raw:line }, parseContent(inner.rest));
+  }
+
+  const dayMatch = working.match(/^((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?:\s*,\s*(?:Sun|Mon|Tue|Wed|Thu|Fri|Sat))*)\s*:\s*(.+)$/i);
   if(dayMatch){
     const days = dayMatch[1].split(',').map(d => d.trim().slice(0,3).replace(/^\w/, c => c.toUpperCase()));
-    return Object.assign({ type:'weekday', days }, parseContent(dayMatch[2].trim()));
+    const inner = stripUntil(dayMatch[2].trim());
+    return Object.assign({ type:'weekday', days, until: until || inner.until, raw:line }, parseContent(inner.rest));
   }
-  return Object.assign({ type:'daily' }, parseContent(line.trim()));
+
+  const inner = stripUntil(working);
+  return Object.assign({ type:'daily', until: until || inner.until, raw:line }, parseContent(inner.rest));
+}
+
+function isoFor(d){
+  return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+}
+
+// Items scheduled on a given Date object
+function itemsForDate(d){
+  const iso = isoFor(d);
+  const wd = WEEKDAY_ABBR[d.getDay()];
+  return rules.map(parseRule)
+    .filter(r => r.kind === 'photo' ? r.imageUrl : r.text)
+    .filter(r => {
+      if(r.until && iso > r.until) return false;
+      if(r.type === 'date') return r.date === iso;
+      if(r.type === 'weekday') return r.days.includes(wd);
+      return true;
+    });
+}
+
+// Only the dated/weekday items — the "appointments", not the standing daily notes
+function scheduledForDate(d){
+  return itemsForDate(d).filter(r => r.type !== 'daily');
+}
+
+function parseClock(str){
+  const m = str.match(/^(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?$/i);
+  if(!m) return null;
+  let hour = parseInt(m[1], 10);
+  const min = m[2] ? parseInt(m[2], 10) : 0;
+  const mer = (m[3] || '').toLowerCase().replace(/\./g, '');
+  if(!m[2] && !mer) return null;
+  if(hour < 1 || hour > 23) return null;
+  if(min > 59) return null;
+  if(mer === 'pm' && hour < 12) hour += 12;
+  if(mer === 'am' && hour === 12) hour = 0;
+  if(!mer && hour >= 1 && hour <= 7) hour += 12;
+  return hour * 60 + min;
+}
+
+// Finds a time or a time range: "1:30", "10:00 AM", "3:00 PM-4:00 PM", "2:00-2:30 pm"
+function extractTime(text){
+  const range = text.match(/\b(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\s*(?:-|–|—|to)\s*(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)/i);
+  if(range){
+    let start = parseClock(range[1].trim());
+    let end = parseClock(range[2].trim());
+    // "2:00-2:30 pm" — borrow the meridiem from the end time
+    if(start == null && end != null){
+      const mer = (range[2].match(/a\.?m\.?|p\.?m\.?/i) || [''])[0];
+      start = parseClock(range[1].trim() + ' ' + mer);
+    }
+    if(start != null){
+      if(end != null && end < start) end += 12 * 60;   // crossed meridiem
+      return { minutes: start, end: (end != null ? end : null) };
+    }
+  }
+  const m = text.match(/\b(\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)?)\b/i);
+  if(m){
+    const t = parseClock(m[1].trim());
+    if(t != null) return { minutes: t, end: null };
+  }
+  return null;
+}
+
+function summaryLabel(r){
+  return r.kind === 'photo' ? (r.caption || 'Photo') : r.text;
+}
+
+// Every-day items — standing notes, no schedule attached
+function buildRemindersPage(){
+  const items = itemsForDate(effectiveDate())
+    .filter(r => r.type === 'daily')
+    .map(summaryLabel);
+  return { kind:'summary', title:'Reminders', items, raw:'__reminders__' };
+}
+
+function fmtTime(mins){
+  let h = Math.floor(mins / 60), m = mins % 60;
+  const mer = h >= 12 ? 'PM' : 'AM';
+  let h12 = h % 12; if(h12 === 0) h12 = 12;
+  return h12 + ':' + pad(m) + ' ' + mer;
+}
+
+// The whole day laid out in order, with a NOW marker showing where we are.
+function buildSchedulePage(){
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
+
+  const timed = itemsForDate(effectiveDate())
+    .map(r => ({ label: summaryLabel(r), t: extractTime(summaryLabel(r)) }))
+    .filter(x => x.t)
+    .sort((a,b) => a.t.minutes - b.t.minutes);
+
+  if(timed.length === 0) return { kind:'schedule', rows: [], raw:'__schedule__' };
+
+  const rows = [];
+  let nowPlaced = false;
+  timed.forEach(x => {
+    if(!nowPlaced && nowMinutes < x.t.minutes){
+      rows.push({ type:'now' });
+      nowPlaced = true;
+    }
+    const endsAt = (x.t.end != null ? x.t.end : x.t.minutes) + grace;
+    const past = nowMinutes > endsAt;
+    const current = !past && nowMinutes >= x.t.minutes;
+    rows.push({
+      type:'item',
+      time: fmtTime(x.t.minutes) + (x.t.end != null ? ' – ' + fmtTime(x.t.end) : ''),
+      label: x.label, past, current
+    });
+  });
+  if(!nowPlaced) rows.push({ type:'now' });
+
+  return { kind:'schedule', title:"Today's schedule", rows, raw:'__schedule__' };
+}
+
+// The next six days
+function buildScheduledPage(){
+  const start = effectiveDate();
+  const days = [];
+  for(let i = 1; i <= 6; i++){
+    const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const items = scheduledForDate(d);
+    if(items.length){
+      days.push({
+        day: d.toLocaleDateString(undefined, { weekday: 'long' }),
+        dayDate: d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        items: items.map(summaryLabel)
+      });
+    }
+  }
+  return { kind:'week', title:'Scheduled', days, raw:'__scheduled__' };
 }
 
 function computeActive(){
   const parsed = rules.map(parseRule).filter(r => r.kind === 'photo' ? r.imageUrl : r.text);
   const today = todayISO();
-  const dateOverrides = parsed.filter(r => r.type === 'date' && r.date === today);
-  const pool = dateOverrides.length > 0 ? dateOverrides : parsed.filter(r => {
-    const weekdayName = WEEKDAY_ABBR[new Date().getDay()];
-    return r.type === 'daily' || (r.type === 'weekday' && r.days.includes(weekdayName));
+  const weekdayName = WEEKDAY_ABBR[effectiveDate().getDay()];
+  const pool = parsed.filter(r => {
+    // expired by end date?
+    if(r.until && today > r.until) return false;
+    if(r.type === 'date' && r.date !== today) return false;
+    if(r.type === 'weekday' && !r.days.includes(weekdayName)) return false;
+    // past its clock time (plus grace)?
+    const t = extractTime(r.kind === 'photo' ? (r.caption || '') : (r.text || ''));
+    if(t){
+      const now = new Date();
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
+      const endsAt = (t.end != null ? t.end : t.minutes) + grace;
+      if(nowMinutes > endsAt) return false;
+    }
+    return true;
   });
-  return pool.map(r => ({ kind: r.kind, text: r.text, imageUrl: r.imageUrl, caption: r.caption, alert: r.alert }));
+  return pool.map(r => ({ kind:r.kind, text:r.text, imageUrl:r.imageUrl, caption:r.caption, alert:r.alert, raw:r.raw }));
 }
 
-function refreshActive(){
-  reminders = computeActive();
+let lastActiveKey = null;
+
+function refreshActive(force){
+  let next = computeActive();
+  if(settings.showSummaries !== false){
+    const pages = [];
+    const sched0 = buildSchedulePage();
+    if(sched0.rows && sched0.rows.length) pages.push(sched0);
+    const rem = buildRemindersPage();
+    if(rem.items.length) pages.push(rem);
+    const sched = buildScheduledPage();
+    if(sched.days.length) pages.push(sched);
+    next = pages.concat(next);
+  }
+
+  // Build a comparison key that ignores the minute-by-minute NOW clock,
+  // so the rotation is only rebuilt when the actual content changes.
+  const key = JSON.stringify(next, (k, v) => {
+    if(k === 'time' && typeof v === 'string') return '';
+    return v;
+  });
+  if(!force && key === lastActiveKey) return;
+  lastActiveKey = key;
+
+  reminders = next;
   if(idx >= reminders.length) idx = 0;
   renderDots();
   showCurrent(true);
@@ -292,16 +631,48 @@ function refreshActive(){
 
 function scheduleMidnightRefresh(){
   if(midnightTimer) clearTimeout(midnightTimer);
+  const startHour = (settings.dayStartHour != null) ? settings.dayStartHour : 7;
   const now = new Date();
-  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0, 0, 5);
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate(), startHour, 0, 5);
+  if(next <= now) next.setDate(next.getDate() + 1);
   midnightTimer = setTimeout(() => { refreshActive(); scheduleMidnightRefresh(); }, next - now);
+}
+
+const LS_SEEN = 'reminder-board-firstseen';
+let firstSeen = {};
+
+function loadSeen(){
+  try{ firstSeen = JSON.parse(localStorage.getItem(LS_SEEN)) || {}; }
+  catch(e){ firstSeen = {}; }
+}
+function saveSeen(){
+  try{ localStorage.setItem(LS_SEEN, JSON.stringify(firstSeen)); }catch(e){}
+}
+function recordSeen(lines){
+  const now = Date.now();
+  let changed = false;
+  lines.forEach(l => {
+    if(!firstSeen[l]){ firstSeen[l] = now; changed = true; }
+  });
+  // prune entries no longer in the file
+  Object.keys(firstSeen).forEach(k => {
+    if(!lines.includes(k)){ delete firstSeen[k]; changed = true; }
+  });
+  if(changed) saveSeen();
+}
+function isNew(raw){
+  const mins = settings.newMinutes;
+  if(!mins || mins <= 0) return false;
+  const t = firstSeen[raw];
+  if(!t) return false;
+  return (Date.now() - t) < mins * 60 * 1000;
 }
 
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false }; }
-  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false }; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60 }; }
+  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60 }; }
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
@@ -317,7 +688,8 @@ async function fetchRemote(){
   const statusEl = document.getElementById('remoteStatus');
   if(!settings.remoteUrl) return;
   try{
-    const res = await fetch(settings.remoteUrl, { cache: 'no-store' });
+    const bust = settings.remoteUrl + (settings.remoteUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const res = await fetch(bust, { cache: 'no-store' });
     if(!res.ok) throw new Error('Fetch failed: ' + res.status);
     const text = await res.text();
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -326,6 +698,7 @@ async function fetchRemote(){
       const newLines = lines.filter(l => !previousLines.includes(l));
       const hasNewAlert = newLines.some(l => parseRule(l).alert);
       rules = lines;
+      recordSeen(lines);
       saveLocal();
       refreshActive();
       if(hasNewAlert) playChime();
@@ -370,14 +743,46 @@ const contentEl = document.getElementById('content');
 function showCurrent(skipAnim){
   if(reminders.length === 0){
     tagEl.style.display = 'none';
+    const nb0 = document.getElementById('newBadge');
+    if(nb0) nb0.innerHTML = '';
     contentEl.innerHTML = '<div class="message" style="font-size:clamp(28px,4vw,48px);">No reminders for today — tap ⚙ to add a remote file</div>';
     return;
   }
   const item = reminders[idx];
-  tagEl.style.display = 'inline-block';
-  tagEl.textContent = new Date().toLocaleDateString(undefined, { weekday: 'long' });
+  tagEl.style.display = 'none';
+  const nb = document.getElementById('newBadge');
+  if(nb) nb.innerHTML = isNew(item.raw) ? '<span class="new-badge">New</span>' : '';
 
-  if(item.kind === 'photo'){
+  if(item.kind === 'schedule'){
+    contentEl.innerHTML = `<div class="summary-title">${escapeHtml(item.title)}</div>` +
+      `<div class="sched-wrap">` +
+      item.rows.map(r => {
+        if(r.type === 'now'){
+          return `<div class="sched-now"><span class="now-pill">Now</span>` +
+                 `<span class="now-line"></span></div>`;
+        }
+        const cls = 'sched-row' + (r.past ? ' past' : '') + (r.current ? ' current' : '');
+        return `<div class="${cls}">` +
+               `<div class="sched-time">${escapeHtml(r.time)}</div>` +
+               `<div class="sched-label">${escapeHtml(r.label)}</div></div>`;
+      }).join('') +
+      `</div>`;
+  } else if(item.kind === 'summary'){
+    contentEl.innerHTML = `<div class="summary-title">${escapeHtml(item.title)}</div>` +
+      `<ul class="summary-list">` +
+      item.items.map(t => `<li>${escapeHtml(t)}</li>`).join('') +
+      `</ul>`;
+  } else if(item.kind === 'week'){
+    contentEl.innerHTML = `<div class="summary-title">${escapeHtml(item.title)}</div>` +
+      `<div class="week-wrap">` +
+      item.days.map(d =>
+        `<div class="week-day"><div class="dow">${escapeHtml(d.day)}` +
+        (d.dayDate ? ` <span class="dow-date">${escapeHtml(d.dayDate)}</span>` : '') +
+        `</div>` +
+        `<div class="what">${d.items.map(escapeHtml).join('<br>')}</div></div>`
+      ).join('') +
+      `</div>`;
+  } else if(item.kind === 'photo'){
     contentEl.innerHTML = `<img class="photo" src="${item.imageUrl}" alt="">` +
       (item.caption ? `<div class="caption">${escapeHtml(item.caption)}</div>` : '');
   } else {
@@ -421,8 +826,20 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   settings.interval = v;
   settings.remoteUrl = remoteUrlInput.value.trim();
   settings.soundOn = soundToggleInput.checked;
+  let nm = parseInt(newMinutesInput.value, 10);
+  if(isNaN(nm) || nm < 0) nm = 0;
+  settings.newMinutes = nm;
+  let ds = parseInt(dayStartInput.value, 10);
+  if(isNaN(ds) || ds < 0 || ds > 23) ds = 7;
+  settings.dayStartHour = ds;
+  settings.showSummaries = summaryToggleInput.checked;
+  let gm = parseInt(graceInput.value, 10);
+  if(isNaN(gm) || gm < 0) gm = 0;
+  settings.graceMinutes = gm;
   saveLocal();
   startRotation();
+  scheduleMidnightRefresh();
+  refreshActive(true);
   if(settings.remoteUrl){
     fetchRemote();
     startRemotePolling();
@@ -434,16 +851,33 @@ document.getElementById('saveBtn').addEventListener('click', () => {
 function tickClock(){
   const now = new Date();
   document.getElementById('time').textContent = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  document.getElementById('date').textContent = now.toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
+  document.getElementById('dayName').textContent = effectiveDate().toLocaleDateString(undefined, { weekday: 'long' });
+  document.getElementById('date').textContent = effectiveDate().toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 }
+
+// Re-evaluate which items are still due, so passed times drop off without waiting for a sync
+let lastMinuteChecked = -1;
+function timeTick(){
+  const m = new Date().getMinutes();
+  if(m !== lastMinuteChecked){
+    lastMinuteChecked = m;
+    refreshActive();
+  }
+}
+setInterval(timeTick, 20000);
 tickClock();
 setInterval(tickClock, 15000);
 
 function init(){
   loadLocal();
+  loadSeen();
   intervalInput.value = settings.interval;
   remoteUrlInput.value = settings.remoteUrl || '';
   soundToggleInput.checked = !!settings.soundOn;
+  newMinutesInput.value = settings.newMinutes != null ? settings.newMinutes : 1440;
+  dayStartInput.value = settings.dayStartHour != null ? settings.dayStartHour : 7;
+  summaryToggleInput.checked = settings.showSummaries !== false;
+  graceInput.value = settings.graceMinutes != null ? settings.graceMinutes : 60;
   refreshActive();
   startRotation();
   scheduleMidnightRefresh();
