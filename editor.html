@@ -196,9 +196,18 @@
       <input type="date" id="dateInput">
     </div>
 
-    <div id="untilField" class="field">
-      <label>Stop showing after (optional)</label>
-      <input type="date" id="untilInput">
+    <div class="row">
+      <div class="field">
+        <label>Start showing on (optional)</label>
+        <input type="date" id="fromInput">
+      </div>
+      <div id="untilField" class="field">
+        <label>Stop showing after (optional)</label>
+        <input type="date" id="untilInput">
+      </div>
+    </div>
+    <div style="font-size:11px; color:var(--ink-soft); margin:-6px 0 14px; line-height:1.4;">
+      Use a start date for advance notice \u2014 e.g. a message about Thursday\u2019s appointment that begins showing on Monday.
     </div>
 
     <div class="toggle-row">
@@ -293,6 +302,7 @@ const weekdayField = document.getElementById('weekdayField');
 const dateField = document.getElementById('dateField');
 const dateInput = document.getElementById('dateInput');
 const untilInput = document.getElementById('untilInput');
+const fromInput = document.getElementById('fromInput');
 const dayChips = document.querySelectorAll('.day-chip');
 const photoToggle = document.getElementById('photoToggle');
 const textField = document.getElementById('textField');
@@ -350,6 +360,7 @@ function buildLine(rule){
     if(rule.alert) content = `alert: ${content}`;
   }
   if(rule.until) content = `until ${rule.until}: ${content}`;
+  if(rule.from) content = `from ${rule.from}: ${content}`;
   if(rule.type === 'date') return `${rule.date}: ${content}`;
   if(rule.type === 'weekday') return `${rule.days.join(',')}: ${content}`;
   return content;
@@ -375,11 +386,17 @@ async function saveRules(){
 // Reverse of buildLine: turn a gist text line back into a rule object
 function parseLineToRule(line){
   let rest = line.trim();
-  let type = 'daily', days = [], date = '', until = '';
+  let type = 'daily', days = [], date = '', until = '', from = '';
 
   function takeUntil(s){
-    const m = s.match(/^until\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/i);
-    if(m){ until = m[1]; return m[2].trim(); }
+    let changed = true;
+    while(changed){
+      changed = false;
+      const f = s.match(/^from\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/i);
+      if(f){ from = f[1]; s = f[2].trim(); changed = true; continue; }
+      const m = s.match(/^until\s+(\d{4}-\d{2}-\d{2})\s*:\s*(.+)$/i);
+      if(m){ until = m[1]; s = m[2].trim(); changed = true; continue; }
+    }
     return s;
   }
 
@@ -401,7 +418,7 @@ function parseLineToRule(line){
 
   const photoMatch = rest.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
   if(photoMatch){
-    return { type, days, date, until, isPhoto:true, text:'', schedLabel:'', photoUrl:photoMatch[1].trim(), photoCaption:(photoMatch[2]||'').trim(), alert };
+    return { type, days, date, until, from, isPhoto:true, text:'', schedLabel:'', photoUrl:photoMatch[1].trim(), photoCaption:(photoMatch[2]||'').trim(), alert };
   }
   let schedLabel = '';
   const parts = rest.split('|');
@@ -410,7 +427,7 @@ function parseLineToRule(line){
     const msg = parts.join('|').trim();
     if(msg && lbl){ rest = msg; schedLabel = lbl; }
   }
-  return { type, days, date, until, isPhoto:false, text:rest, schedLabel, photoUrl:'', photoCaption:'', alert };
+  return { type, days, date, until, from, isPhoto:false, text:rest, schedLabel, photoUrl:'', photoCaption:'', alert };
 }
 
 const DAY_ORDER = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -427,6 +444,10 @@ function ruleRow(rule, i){
     : rule.text;
   let badges = '';
   if(rule.alert) badges += '<span class="badge">🔔 chimes</span>';
+  if(rule.from){
+    const pending = todayValue() < rule.from;
+    badges += `<span class="badge" style="color:var(--ink-soft)">${pending ? 'starts ' : 'from '}${rule.from}</span>`;
+  }
   if(rule.until){
     const expired = todayValue() > rule.until;
     badges += `<span class="badge" style="color:${expired ? 'var(--clay)' : 'var(--ink-soft)'}">${expired ? 'expired ' : 'until '}${rule.until}</span>`;
@@ -768,7 +789,8 @@ document.getElementById('addBtn').addEventListener('click', async () => {
     photoCaption: photoCaption.value.trim(),
     alert: alertToggle.checked,
     schedLabel: (schedLabelInput.value || '').trim(),
-    until: untilInput.value || ''
+    until: untilInput.value || '',
+    from: fromInput.value || ''
   };
   rules.push(rule);
   await saveRules();
@@ -782,6 +804,7 @@ document.getElementById('addBtn').addEventListener('click', async () => {
   photoCaption.value = '';
   alertToggle.checked = false;
   untilInput.value = '';
+  fromInput.value = '';
   schedLabelInput.value = '';
   photoToggle.checked = false;
   photoFields.classList.add('hidden');
