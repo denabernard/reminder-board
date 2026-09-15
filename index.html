@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -336,6 +335,15 @@
           <input type="number" id="interval" min="3" max="120" value="8">
           <span style="font-size:13px; color:var(--ink-soft);">seconds</span>
         </div>
+        <div class="field">
+          <label for="calId">Google Calendar ID (optional)</label>
+          <input type="text" id="calId" placeholder="abc123@group.calendar.google.com">
+        </div>
+        <div class="field">
+          <label for="calKey">Google API key</label>
+          <input type="text" id="calKey" placeholder="AIza...">
+          <div id="calStatus" style="font-size:12px; color:var(--ink-soft); margin-top:6px;"></div>
+        </div>
         <div class="field-row">
           <label for="dayStart" style="margin:0;">New day starts at</label>
           <input type="number" id="dayStart" min="0" max="23" value="7">
@@ -370,7 +378,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from 2026-09-01:" / "until 2026-09-10:" = show only in that window · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 22 — advance-notice reminders</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 23 — live Google Calendar</div>
       </div>
     </div>
   </div>
@@ -380,7 +388,7 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark' };
+let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '' };
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
@@ -398,6 +406,8 @@ const dayStartInput = document.getElementById('dayStart');
 const summaryToggleInput = document.getElementById('summaryToggle');
 const graceInput = document.getElementById('graceMinutes');
 const themeSelect = document.getElementById('themeSelect');
+const calIdInput = document.getElementById('calId');
+const calKeyInput = document.getElementById('calKey');
 
 const defaultRules = [
   "Take your vitamins",
@@ -589,19 +599,89 @@ function fmtTime(mins){
   return h12 + ':' + pad(m) + ' ' + mer;
 }
 
+// ---- Live Google Calendar ----
+let calendarItems = [];   // { date, minutes, end, label }
+let calendarTimer = null;
+
+function gcalDayBounds(){
+  const d = effectiveDate();
+  const startHour = (settings.dayStartHour != null) ? settings.dayStartHour : 7;
+  const from = new Date(d.getFullYear(), d.getMonth(), d.getDate(), startHour, 0, 0);
+  const to   = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, startHour, 0, 0);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+async function fetchCalendar(){
+  const statusEl = document.getElementById('calStatus');
+  const id = (settings.calendarId || '').trim();
+  const key = (settings.calendarKey || '').trim();
+  if(!id || !key){ calendarItems = []; return; }
+
+  const b = gcalDayBounds();
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/' +
+    encodeURIComponent(id) + '/events' +
+    '?key=' + encodeURIComponent(key) +
+    '&singleEvents=true&orderBy=startTime' +
+    '&timeMin=' + encodeURIComponent(b.from) +
+    '&timeMax=' + encodeURIComponent(b.to) +
+    '&maxResults=50';
+
+  try{
+    const res = await fetch(url, { cache:'no-store' });
+    if(!res.ok){
+      const e = await res.json().catch(() => ({}));
+      throw new Error((e.error && e.error.message) || ('HTTP ' + res.status));
+    }
+    const data = await res.json();
+    calendarItems = (data.items || [])
+      .filter(ev => ev.status !== 'cancelled' && ev.start && ev.start.dateTime)
+      .map(ev => {
+        const s = new Date(ev.start.dateTime);
+        const e = ev.end && ev.end.dateTime ? new Date(ev.end.dateTime) : null;
+        return {
+          date: isoFor(s),
+          minutes: s.getHours() * 60 + s.getMinutes(),
+          end: e ? e.getHours() * 60 + e.getMinutes() : null,
+          label: (ev.summary || 'Event').trim()
+        };
+      });
+    if(statusEl) statusEl.textContent = calendarItems.length + ' event(s) — synced ' + new Date().toLocaleTimeString();
+    refreshActive();
+  }catch(err){
+    if(statusEl) statusEl.textContent = 'Calendar error: ' + err.message;
+  }
+}
+
+function startCalendarPolling(){
+  if(calendarTimer) clearInterval(calendarTimer);
+  calendarTimer = setInterval(fetchCalendar, 5 * 60 * 1000);
+}
+
 // The day laid out in order, split into morning and afternoon so the type stays large.
 function buildSchedulePages(){
   const now = new Date();
   const nowMinutes = now.getHours() * 60 + now.getMinutes();
   const grace = (settings.graceMinutes != null) ? settings.graceMinutes : 60;
 
-  const timed = itemsForDate(effectiveDate())
+  const fromRules = itemsForDate(effectiveDate())
     .map(r => ({
       label: stripTimeFromLabel(r.schedLabel || summaryLabel(r)),
       t: extractTime(summaryLabel(r))
     }))
-    .filter(x => x.t)
-    .sort((a,b) => a.t.minutes - b.t.minutes);
+    .filter(x => x.t);
+
+  const today = todayISO();
+  const fromCalendar = calendarItems
+    .filter(c => c.date === today)
+    .map(c => ({ label: c.label, t: { minutes: c.minutes, end: c.end } }));
+
+  // Drop a calendar event if the same thing is already in the list at the same time
+  const seen = new Set(fromRules.map(x => x.t.minutes + '|' + x.label.toLowerCase()));
+  const merged = fromRules.concat(
+    fromCalendar.filter(c => !seen.has(c.t.minutes + '|' + c.label.toLowerCase()))
+  );
+
+  const timed = merged.sort((a,b) => a.t.minutes - b.t.minutes);
 
   if(timed.length === 0) return [];
 
@@ -739,8 +819,8 @@ function applyTheme(){
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark' }; }
-  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark' }; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '' }; }
+  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '' }; }
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
@@ -914,7 +994,16 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   if(isNaN(gm) || gm < 0) gm = 0;
   settings.graceMinutes = gm;
   settings.theme = themeSelect.value;
+  settings.calendarId = calIdInput.value.trim();
+  settings.calendarKey = calKeyInput.value.trim();
   applyTheme();
+  if(settings.calendarId && settings.calendarKey){
+    fetchCalendar();
+    startCalendarPolling();
+  } else {
+    calendarItems = [];
+    if(calendarTimer) clearInterval(calendarTimer);
+  }
   saveLocal();
   startRotation();
   scheduleMidnightRefresh();
@@ -958,6 +1047,8 @@ function init(){
   summaryToggleInput.checked = settings.showSummaries !== false;
   graceInput.value = settings.graceMinutes != null ? settings.graceMinutes : 60;
   themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
+  calIdInput.value = settings.calendarId || '';
+  calKeyInput.value = settings.calendarKey || '';
   applyTheme();
   refreshActive();
   startRotation();
@@ -965,6 +1056,10 @@ function init(){
   if(settings.remoteUrl){
     fetchRemote();
     startRemotePolling();
+  }
+  if(settings.calendarId && settings.calendarKey){
+    fetchCalendar();
+    startCalendarPolling();
   }
 }
 init();
