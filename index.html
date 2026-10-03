@@ -368,6 +368,10 @@
           <div id="settingsStatus" style="font-size:12px; color:var(--ink-soft); margin-top:6px;"></div>
         </div>
         <div class="field">
+          <label for="calFeed">Calendar feed URL (optional)</label>
+          <input type="text" id="calFeed" placeholder="https://script.google.com/macros/s/…/exec">
+        </div>
+        <div class="field">
           <label for="calId">Google Calendar ID (optional)</label>
           <input type="text" id="calId" placeholder="abc123@group.calendar.google.com">
         </div>
@@ -415,7 +419,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from 2026-09-01:" / "until 2026-09-10:" = show only in that window · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 29 — self-healing URLs</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 30 — calendar feed support</div>
       </div>
     </div>
   </div>
@@ -437,6 +441,7 @@ const DEFAULTS = {
   showSummaries: true,
   graceMinutes: 60,
   theme: 'dark',
+  calendarFeed: '',
   calendarId: '',
   calendarKey: '',
   upcomingDays: 180,
@@ -463,6 +468,7 @@ const themeSelect = document.getElementById('themeSelect');
 const calIdInput = document.getElementById('calId');
 const calKeyInput = document.getElementById('calKey');
 const upcomingDaysInput = document.getElementById('upcomingDays');
+const calFeedInput = document.getElementById('calFeed');
 
 const defaultRules = [
   "Take your vitamins",
@@ -669,14 +675,15 @@ const REMOTE_KEYS = {
   calendarid:   v => v.trim(),
   calendarkey:  v => v.trim(),
   upcomingdays: v => Math.max(0, Math.min(730, parseInt(v,10) || 0)),
-  remindersurl: v => v.trim()
+  remindersurl: v => v.trim(),
+  calendarfeed: v => v.trim()
 };
 const REMOTE_TO_SETTING = {
   theme:'theme', interval:'interval', newminutes:'newMinutes',
   daystarthour:'dayStartHour', graceminutes:'graceMinutes',
   sound:'soundOn', schedulepage:'showSummaries',
   calendarid:'calendarId', calendarkey:'calendarKey',
-  upcomingdays:'upcomingDays', remindersurl:'remoteUrl'
+  upcomingdays:'upcomingDays', remindersurl:'remoteUrl', calendarfeed:'calendarFeed'
 };
 
 let remoteSettingsTimer = null;
@@ -703,7 +710,7 @@ async function fetchRemoteSettings(){
       const target = REMOTE_TO_SETTING[key];
       const parsed = REMOTE_KEYS[key](val);
       if(settings[target] !== parsed){
-        if(target === 'calendarId' || target === 'calendarKey') calChanged = true;
+        if(target === 'calendarId' || target === 'calendarKey' || target === 'calendarFeed') calChanged = true;
         if(target === 'theme') themeChanged = true;
         if(target === 'remoteUrl') remoteChanged = true;
         settings[target] = parsed;
@@ -718,7 +725,7 @@ async function fetchRemoteSettings(){
       startRotation();
       scheduleMidnightRefresh();
       if(calChanged){
-        if(settings.calendarId && settings.calendarKey){ fetchCalendar(); startCalendarPolling(); }
+        if(settings.calendarFeed || (settings.calendarId && settings.calendarKey)){ fetchCalendar(); startCalendarPolling(); }
         else { calendarItems = []; if(calendarTimer) clearInterval(calendarTimer); }
       }
       if(remoteChanged){ fetchRemote(); startRemotePolling(); }
@@ -749,6 +756,7 @@ function syncSettingsInputs(){
   themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
   calIdInput.value = settings.calendarId || '';
   calKeyInput.value = settings.calendarKey || '';
+  calFeedInput.value = settings.calendarFeed || '';
   upcomingDaysInput.value = settings.upcomingDays != null ? settings.upcomingDays : 180;
   const su = document.getElementById('settingsUrl');
   if(su) su.value = settings.settingsUrl || '';
@@ -766,8 +774,45 @@ function gcalDayBounds(){
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
+// A plain JSON feed: [{ title, start, end }] with ISO timestamps.
+// Used when the calendar is shared with you rather than public, via an Apps Script.
+async function fetchCalendarFeed(){
+  const statusEl = document.getElementById('calStatus');
+  const url = (settings.calendarFeed || '').trim();
+  if(!url) return false;
+  try{
+    const bust = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const res = await fetch(bust, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const list = Array.isArray(data) ? data : (data.events || []);
+    calendarItems = list
+      .filter(e => e && e.start)
+      .map(e => {
+        const s = new Date(e.start);
+        const en = e.end ? new Date(e.end) : null;
+        return {
+          date: isoFor(s),
+          minutes: s.getHours() * 60 + s.getMinutes(),
+          end: en ? en.getHours() * 60 + en.getMinutes() : null,
+          label: (e.title || e.summary || 'Event').trim()
+        };
+      });
+    if(statusEl) statusEl.textContent = calendarItems.length + ' event(s) from feed — synced ' + new Date().toLocaleTimeString();
+    refreshActive();
+    return true;
+  }catch(err){
+    if(statusEl) statusEl.textContent = 'Feed error: ' + err.message;
+    return true;   // a feed was configured; don't fall through to the API
+  }
+}
+
 async function fetchCalendar(){
   const statusEl = document.getElementById('calStatus');
+  if((settings.calendarFeed || '').trim()){
+    await fetchCalendarFeed();
+    return;
+  }
   const id = (settings.calendarId || '').trim();
   const key = (settings.calendarKey || '').trim();
   if(!id || !key){ calendarItems = []; return; }
@@ -1241,12 +1286,13 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   settings.theme = themeSelect.value;
   settings.calendarId = calIdInput.value.trim();
   settings.calendarKey = calKeyInput.value.trim();
+  settings.calendarFeed = calFeedInput.value.trim();
   const suEl = document.getElementById('settingsUrl');
   settings.settingsUrl = suEl ? suEl.value.trim() : '';
   if(settings.settingsUrl){ fetchRemoteSettings(); startRemoteSettingsPolling(); }
   else if(remoteSettingsTimer) clearInterval(remoteSettingsTimer);
   applyTheme();
-  if(settings.calendarId && settings.calendarKey){
+  if(settings.calendarFeed || (settings.calendarId && settings.calendarKey)){
     fetchCalendar();
     startCalendarPolling();
   } else {
@@ -1301,7 +1347,7 @@ function init(){
     fetchRemoteSettings();
     startRemoteSettingsPolling();
   }
-  if(settings.calendarId && settings.calendarKey){
+  if(settings.calendarFeed || (settings.calendarId && settings.calendarKey)){
     fetchCalendar();
     startCalendarPolling();
   }
