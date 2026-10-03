@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -414,7 +415,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from 2026-09-01:" / "until 2026-09-10:" = show only in that window · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 28 — settings gist corrected</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 29 — self-healing URLs</div>
       </div>
     </div>
   </div>
@@ -424,6 +425,8 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
+const CONFIG_VERSION = 29;
+
 const DEFAULTS = {
   interval: 8,
   remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt',
@@ -665,14 +668,15 @@ const REMOTE_KEYS = {
   schedulepage: v => /^(on|true|yes|1)$/i.test(v.trim()),
   calendarid:   v => v.trim(),
   calendarkey:  v => v.trim(),
-  upcomingdays: v => Math.max(0, Math.min(730, parseInt(v,10) || 0))
+  upcomingdays: v => Math.max(0, Math.min(730, parseInt(v,10) || 0)),
+  remindersurl: v => v.trim()
 };
 const REMOTE_TO_SETTING = {
   theme:'theme', interval:'interval', newminutes:'newMinutes',
   daystarthour:'dayStartHour', graceminutes:'graceMinutes',
   sound:'soundOn', schedulepage:'showSummaries',
   calendarid:'calendarId', calendarkey:'calendarKey',
-  upcomingdays:'upcomingDays'
+  upcomingdays:'upcomingDays', remindersurl:'remoteUrl'
 };
 
 let remoteSettingsTimer = null;
@@ -687,7 +691,7 @@ async function fetchRemoteSettings(){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
 
-    let applied = 0, calChanged = false, themeChanged = false;
+    let applied = 0, calChanged = false, themeChanged = false, remoteChanged = false;
     text.split('\n').forEach(raw => {
       const line = raw.trim();
       if(!line || line.startsWith('#')) return;
@@ -701,6 +705,7 @@ async function fetchRemoteSettings(){
       if(settings[target] !== parsed){
         if(target === 'calendarId' || target === 'calendarKey') calChanged = true;
         if(target === 'theme') themeChanged = true;
+        if(target === 'remoteUrl') remoteChanged = true;
         settings[target] = parsed;
         if(target === 'upcomingDays') settings.showUpcoming = parsed > 0;
         applied++;
@@ -716,6 +721,7 @@ async function fetchRemoteSettings(){
         if(settings.calendarId && settings.calendarKey){ fetchCalendar(); startCalendarPolling(); }
         else { calendarItems = []; if(calendarTimer) clearInterval(calendarTimer); }
       }
+      if(remoteChanged){ fetchRemote(); startRemotePolling(); }
       refreshActive(true);
       syncSettingsInputs();
     }
@@ -1027,7 +1033,16 @@ function loadLocal(){
   let saved = null;
   try{ saved = JSON.parse(localStorage.getItem(LS_SETTINGS)); }catch(e){ saved = null; }
   settings = Object.assign({}, DEFAULTS, saved || {});
-  // A device saved before these existed will have them blank — fall back to the built-in default
+
+  // Self-heal: a newer build resets the two URLs to its built-in defaults, so a
+  // device that was pointed at the wrong file can be fixed by deploying alone.
+  if(!saved || saved.configVersion !== CONFIG_VERSION){
+    settings.remoteUrl   = DEFAULTS.remoteUrl;
+    settings.settingsUrl = DEFAULTS.settingsUrl;
+    settings.configVersion = CONFIG_VERSION;
+    try{ localStorage.setItem(LS_SETTINGS, JSON.stringify(settings)); }catch(e){}
+  }
+
   if(!settings.remoteUrl)   settings.remoteUrl   = DEFAULTS.remoteUrl;
   if(!settings.settingsUrl) settings.settingsUrl = DEFAULTS.settingsUrl;
 }
@@ -1295,3 +1310,4 @@ init();
 </script>
 </body>
 </html>
+
