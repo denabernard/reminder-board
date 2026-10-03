@@ -102,6 +102,22 @@
     opacity:0; transform:translateY(6px);
     animation: rise .6s .05s ease forwards;
   }
+  .todo-wrap{
+    text-align:left; width:100%;
+    display:flex; flex-direction:column; gap: clamp(10px,1.6vw,22px);
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .12s ease forwards;
+  }
+  .todo-row{ display:flex; gap: clamp(12px,1.6vw,22px); align-items:flex-start; }
+  .todo-box{
+    flex:0 0 auto;
+    width: clamp(20px,2.2vw,34px); height: clamp(20px,2.2vw,34px);
+    border:2px solid var(--gold); border-radius:5px;
+    margin-top:.22em;
+  }
+  .todo-text{
+    font-family:'Fraunces', serif; font-weight:500; line-height:1.2;
+  }
   .up-wrap{
     text-align:left; width:100%;
     display:flex; flex-direction:column; gap: clamp(12px,1.8vw,26px);
@@ -416,10 +432,10 @@
           <input type="checkbox" id="soundToggle" style="width:18px; height:18px;">
         </div>
         <div class="hint">
-          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from 2026-09-01:" / "until 2026-09-10:" = show only in that window · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
+          Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from…"/"until…" = date window · "todo: …" = goes on the To do list · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 30 — calendar feed support</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 32 — single To Do page</div>
       </div>
     </div>
   </div>
@@ -499,12 +515,15 @@ function todayISO(){
 // Extracts content-level info (photo / alert) from the text portion of a rule, after schedule prefix is stripped
 function parseContent(text){
   let alert = false;
+  let todo = false;
   let body = text;
   const alertMatch = body.match(/^alert\s*:\s*(.+)$/i);
   if(alertMatch){ alert = true; body = alertMatch[1].trim(); }
+  const todoMatch = body.match(/^(?:todo|to-do|to do)\s*:\s*(.+)$/i);
+  if(todoMatch){ todo = true; body = todoMatch[1].trim(); }
   const photoMatch = body.match(/^photo\s*:\s*(\S+)(?:\s*\|\s*(.+))?$/i);
   if(photoMatch){
-    return { kind: 'photo', imageUrl: photoMatch[1].trim(), caption: (photoMatch[2] || '').trim(), alert };
+    return { kind: 'photo', imageUrl: photoMatch[1].trim(), caption: (photoMatch[2] || '').trim(), alert, todo };
   }
   // "Full message | Short label" — the short label is what the schedule shows,
   // and the full message keeps its place in the rotation.
@@ -513,10 +532,10 @@ function parseContent(text){
     const label = parts.pop().trim();
     const message = parts.join('|').trim();
     if(message && label){
-      return { kind: 'text', text: message, schedLabel: label, alert };
+      return { kind: 'text', text: message, schedLabel: label, alert, todo };
     }
   }
-  return { kind: 'text', text: body, schedLabel: null, alert };
+  return { kind: 'text', text: body, schedLabel: null, alert, todo };
 }
 
 // Strips leading "from YYYY-MM-DD:" and/or "until YYYY-MM-DD:" tokens
@@ -873,6 +892,26 @@ function awayLabel(n){
   return 'In ' + Math.round(n / 7) + ' weeks';
 }
 
+// Things to get done, with no date attached.
+function buildTodoPages(){
+  const today = todayISO();
+  const weekdayName = WEEKDAY_ABBR[effectiveDate().getDay()];
+
+  const items = rules.map(parseRule)
+    .filter(r => r.todo)
+    .filter(r => !(r.until && today > r.until))
+    .filter(r => !(r.from && today < r.from))
+    .filter(r => {
+      if(r.type === 'date') return r.date === today;
+      if(r.type === 'weekday') return r.days.includes(weekdayName);
+      return true;
+    })
+    .map(r => (r.kind === 'photo' ? (r.caption || 'Photo') : r.text));
+
+  if(items.length === 0) return [];
+  return [{ kind:'todo', title:'To Do:', items, raw:'__todo__' }];
+}
+
 // Dated entries still to come — personal appointments rather than the day's activities.
 function buildUpcomingPages(){
   const today = todayISO();
@@ -977,6 +1016,7 @@ function computeActive(){
   const today = todayISO();
   const weekdayName = WEEKDAY_ABBR[effectiveDate().getDay()];
   const pool = parsed.filter(r => {
+    if(r.todo) return false;              // shown on the To do page instead
     if(r.until && today > r.until) return false;
     if(r.from && today < r.from) return false;
 
@@ -1001,7 +1041,7 @@ function computeActive(){
     }
     return true;
   });
-  return pool.map(r => ({ kind:r.kind, text:r.text, schedLabel:r.schedLabel, imageUrl:r.imageUrl, caption:r.caption, alert:r.alert, raw:r.raw }));
+  return pool.map(r => ({ kind:r.kind, text:r.text, schedLabel:r.schedLabel, imageUrl:r.imageUrl, caption:r.caption, alert:r.alert, todo:r.todo, raw:r.raw }));
 }
 
 let lastActiveKey = null;
@@ -1011,7 +1051,8 @@ function refreshActive(force){
   if(settings.showSummaries !== false){
     const schedPages = buildSchedulePages();
     const upcoming = (settings.showUpcoming !== false) ? buildUpcomingPages() : [];
-    next = schedPages.concat(upcoming, next);
+    const todos = buildTodoPages();
+    next = schedPages.concat(upcoming, todos, next);
   }
 
   // Build a comparison key that ignores the minute-by-minute NOW clock,
@@ -1170,7 +1211,23 @@ function showCurrent(skipAnim){
   const nb = document.getElementById('newBadge');
   if(nb) nb.innerHTML = isNew(item.raw) ? '<span class="new-badge">New</span>' : '';
 
-  if(item.kind === 'upcoming'){
+  if(item.kind === 'todo'){
+    const n = item.items.length;
+    let size, gap, box;
+    if(n <= 3)       { size='clamp(32px,4.3vw,66px)'; gap='clamp(14px,2vw,28px)'; box='clamp(22px,2.4vw,38px)'; }
+    else if(n <= 5)  { size='clamp(26px,3.4vw,50px)'; gap='clamp(11px,1.6vw,22px)'; box='clamp(19px,2.1vw,32px)'; }
+    else if(n <= 7)  { size='clamp(22px,2.8vw,40px)'; gap='clamp(8px,1.2vw,16px)';  box='clamp(17px,1.8vw,27px)'; }
+    else if(n <= 10) { size='clamp(18px,2.2vw,31px)'; gap='clamp(6px,0.9vw,12px)';  box='clamp(14px,1.5vw,22px)'; }
+    else             { size='clamp(15px,1.8vw,25px)'; gap='clamp(4px,0.6vw,8px)';   box='clamp(12px,1.3vw,18px)'; }
+    contentEl.innerHTML =
+      `<div class="summary-title">${escapeHtml(item.title)}</div>` +
+      `<div class="todo-wrap" style="gap:${gap};">` +
+      item.items.map(t =>
+        `<div class="todo-row"><span class="todo-box" style="width:${box}; height:${box};"></span>` +
+        `<span class="todo-text" style="font-size:${size};">${escapeHtml(t)}</span></div>`
+      ).join('') +
+      `</div>`;
+  } else if(item.kind === 'upcoming'){
     const n = item.items.length;
     const nameSize = n <= 2 ? 'clamp(32px,4.4vw,66px)' : (n === 3 ? 'clamp(27px,3.6vw,54px)' : 'clamp(23px,3vw,44px)');
     const metaSize = n <= 2 ? 'clamp(17px,2vw,30px)'   : (n === 3 ? 'clamp(15px,1.8vw,25px)' : 'clamp(13px,1.6vw,21px)');
