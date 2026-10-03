@@ -170,6 +170,29 @@
   </div>
 
   <div class="panel">
+    <h2>Bulk remove dated entries</h2>
+    <div style="font-size:13px; color:var(--ink-soft); margin-bottom:12px; line-height:1.5;">
+      Clears one-off dated entries in a range — useful for removing activities you imported before switching to the live calendar. Daily and weekday reminders are never touched.
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>From</label>
+        <input type="date" id="bulkFrom">
+      </div>
+      <div class="field">
+        <label>Through</label>
+        <input type="date" id="bulkTo">
+      </div>
+    </div>
+    <div class="field">
+      <label>Only ones containing this text (optional)</label>
+      <input type="text" id="bulkMatch" placeholder="leave blank for all dated entries in range">
+    </div>
+    <button class="add-btn" id="bulkFindBtn" style="background:var(--clay);">Find matching entries</button>
+    <div id="bulkPreview" style="margin-top:14px;"></div>
+  </div>
+
+  <div class="panel">
     <h2>Add a reminder</h2>
 
     <div class="type-choice">
@@ -762,6 +785,57 @@ document.getElementById('previewBtn').addEventListener('click', () => {
     prev.innerHTML = `<div class="empty" style="color:var(--green)">Added ${pendingImport.length}. Push to gist below to publish.</div>`;
     document.getElementById('importText').value = '';
     pendingImport = [];
+  });
+});
+
+let bulkPending = [];
+
+document.getElementById('bulkFindBtn').addEventListener('click', () => {
+  const from = document.getElementById('bulkFrom').value;
+  const to = document.getElementById('bulkTo').value;
+  const match = (document.getElementById('bulkMatch').value || '').trim().toLowerCase();
+  const prev = document.getElementById('bulkPreview');
+
+  if(!from || !to){
+    prev.innerHTML = '<div class="empty" style="color:var(--clay)">Pick both dates.</div>';
+    return;
+  }
+
+  const hits = [];
+  rules.forEach((r, i) => {
+    if(r.type !== 'date' || !r.date) return;
+    if(r.date < from || r.date > to) return;
+    const hay = ((r.text || '') + ' ' + (r.photoCaption || '') + ' ' + (r.schedLabel || '')).toLowerCase();
+    if(match && hay.indexOf(match) < 0) return;
+    hits.push(i);
+  });
+
+  if(hits.length === 0){
+    prev.innerHTML = '<div class="empty">Nothing matched.</div>';
+    return;
+  }
+
+  bulkPending = hits;
+  const sample = hits.slice(0, 6).map(i => {
+    const r = rules[i];
+    return '<div class="list-item"><div class="txt" style="font-size:13px;">' +
+      (r.date + ': ' + (r.isPhoto ? (r.photoCaption || r.photoUrl) : r.text)).replace(/</g,'&lt;') +
+      '</div></div>';
+  }).join('');
+
+  prev.innerHTML =
+    '<div style="font-size:13px; color:var(--clay); margin-bottom:8px;">' + hits.length + ' entr(y/ies) will be removed:</div>' +
+    sample +
+    (hits.length > 6 ? '<div class="empty">\u2026and ' + (hits.length - 6) + ' more</div>' : '') +
+    '<button class="add-btn" id="bulkConfirm" style="margin-top:12px; background:var(--clay);">Remove these ' + hits.length + '</button>';
+
+  document.getElementById('bulkConfirm').addEventListener('click', async () => {
+    const n = bulkPending.length;
+    bulkPending.sort((a,b) => b - a).forEach(i => rules.splice(i, 1));
+    bulkPending = [];
+    await saveRules();
+    render();
+    prev.innerHTML = '<div class="empty" style="color:var(--green)">Removed ' + n + '. Push to gist below to publish.</div>';
   });
 });
 
