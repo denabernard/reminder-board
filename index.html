@@ -414,7 +414,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from 2026-09-01:" / "until 2026-09-10:" = show only in that window · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 26 — 180-day appointment window</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 27 — settings URL built in</div>
       </div>
     </div>
   </div>
@@ -424,7 +424,22 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '', settingsUrl: '', upcomingDays: 180, showUpcoming: true };
+const DEFAULTS = {
+  interval: 8,
+  remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt',
+  settingsUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/settings.txt',
+  soundOn: false,
+  newMinutes: 1440,
+  dayStartHour: 7,
+  showSummaries: true,
+  graceMinutes: 60,
+  theme: 'dark',
+  calendarId: '',
+  calendarKey: '',
+  upcomingDays: 180,
+  showUpcoming: true
+};
+let settings = Object.assign({}, DEFAULTS);
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
@@ -1009,8 +1024,12 @@ function applyTheme(){
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '', settingsUrl: '', upcomingDays: 180, showUpcoming: true }; }
-  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '', settingsUrl: '', upcomingDays: 180, showUpcoming: true }; }
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(LS_SETTINGS)); }catch(e){ saved = null; }
+  settings = Object.assign({}, DEFAULTS, saved || {});
+  // A device saved before these existed will have them blank — fall back to the built-in default
+  if(!settings.remoteUrl)   settings.remoteUrl   = DEFAULTS.remoteUrl;
+  if(!settings.settingsUrl) settings.settingsUrl = DEFAULTS.settingsUrl;
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
