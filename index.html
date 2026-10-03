@@ -101,6 +101,32 @@
     opacity:0; transform:translateY(6px);
     animation: rise .6s .05s ease forwards;
   }
+  .up-wrap{
+    text-align:left; width:100%;
+    display:flex; flex-direction:column; gap: clamp(12px,1.8vw,26px);
+    opacity:0; transform:translateY(10px);
+    animation: rise .7s .12s ease forwards;
+  }
+  .up-row{
+    display:flex; gap: clamp(14px,2vw,30px); align-items:flex-start;
+  }
+  .up-away{
+    font-family:'Space Grotesk', sans-serif; font-weight:600;
+    font-size: clamp(12px,1.35vw,18px);
+    letter-spacing:.12em; text-transform:uppercase;
+    color: var(--clay);
+    flex:0 0 clamp(105px,11vw,175px);
+    padding-top:.5em; text-align:right;
+  }
+  .up-body{ flex:1; border-left:2px solid rgba(255,255,255,0.16); padding-left: clamp(12px,1.6vw,22px); }
+  body.light-theme .up-body{ border-left-color: rgba(0,0,0,0.18); }
+  .up-name{
+    font-family:'Fraunces', serif; font-weight:500; line-height:1.15;
+  }
+  .up-meta{
+    font-family:'Space Grotesk', sans-serif;
+    color: var(--ink-soft); margin-top:4px; letter-spacing:.02em;
+  }
   .sched-wrap{
     text-align:left; width:100%;
     opacity:0; transform:translateY(10px);
@@ -336,6 +362,11 @@
           <span style="font-size:13px; color:var(--ink-soft);">seconds</span>
         </div>
         <div class="field">
+          <label for="settingsUrl">Remote settings file (optional)</label>
+          <input type="text" id="settingsUrl" placeholder="https://gist.githubusercontent.com/…/raw/settings.txt">
+          <div id="settingsStatus" style="font-size:12px; color:var(--ink-soft); margin-top:6px;"></div>
+        </div>
+        <div class="field">
           <label for="calId">Google Calendar ID (optional)</label>
           <input type="text" id="calId" placeholder="abc123@group.calendar.google.com">
         </div>
@@ -367,6 +398,11 @@
           </select>
         </div>
         <div class="field-row">
+          <label for="upcomingDays" style="margin:0;">Show appointments up to</label>
+          <input type="number" id="upcomingDays" min="0" max="730" value="180">
+          <span style="font-size:13px; color:var(--ink-soft);">days ahead (0 = off)</span>
+        </div>
+        <div class="field-row">
           <label for="summaryToggle" style="margin:0;">Show today's schedule page</label>
           <input type="checkbox" id="summaryToggle" style="width:18px; height:18px;">
         </div>
@@ -378,7 +414,7 @@
           Edit reminders in your remote text file, not here. Format: no prefix = every day · "Mon,Wed:" = specific weekdays · "2026-08-12:" = one-time date · "from 2026-09-01:" / "until 2026-09-10:" = show only in that window · "alert: message" = chimes when shown · "photo: URL | caption" = shows an image instead of text.
         </div>
         <button class="save-btn" id="saveBtn">Save & sync now</button>
-        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 23 — live Google Calendar</div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:4px;">Version 26 — 180-day appointment window</div>
       </div>
     </div>
   </div>
@@ -388,7 +424,7 @@ const LS_RULES = 'reminder-board-rules';
 const LS_SETTINGS = 'reminder-board-settings';
 let rules = [];
 let reminders = [];
-let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '' };
+let settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '', settingsUrl: '', upcomingDays: 180, showUpcoming: true };
 let idx = 0;
 let rotateTimer = null;
 let midnightTimer = null;
@@ -408,6 +444,7 @@ const graceInput = document.getElementById('graceMinutes');
 const themeSelect = document.getElementById('themeSelect');
 const calIdInput = document.getElementById('calId');
 const calKeyInput = document.getElementById('calKey');
+const upcomingDaysInput = document.getElementById('upcomingDays');
 
 const defaultRules = [
   "Take your vitamins",
@@ -599,6 +636,103 @@ function fmtTime(mins){
   return h12 + ':' + pad(m) + ' ' + mer;
 }
 
+// ---- Remote settings ----
+// A plain "key: value" file, fetched alongside the reminders. Anything it
+// specifies overrides the local setting, so the tablet can be configured
+// from anywhere without touching it.
+const REMOTE_KEYS = {
+  theme:        v => (v.trim().toLowerCase() === 'light' ? 'light' : 'dark'),
+  interval:     v => Math.max(3, Math.min(120, parseInt(v,10) || 8)),
+  newminutes:   v => Math.max(0, parseInt(v,10) || 0),
+  daystarthour: v => Math.max(0, Math.min(23, parseInt(v,10) || 0)),
+  graceminutes: v => Math.max(0, parseInt(v,10) || 0),
+  sound:        v => /^(on|true|yes|1)$/i.test(v.trim()),
+  schedulepage: v => /^(on|true|yes|1)$/i.test(v.trim()),
+  calendarid:   v => v.trim(),
+  calendarkey:  v => v.trim(),
+  upcomingdays: v => Math.max(0, Math.min(730, parseInt(v,10) || 0))
+};
+const REMOTE_TO_SETTING = {
+  theme:'theme', interval:'interval', newminutes:'newMinutes',
+  daystarthour:'dayStartHour', graceminutes:'graceMinutes',
+  sound:'soundOn', schedulepage:'showSummaries',
+  calendarid:'calendarId', calendarkey:'calendarKey',
+  upcomingdays:'upcomingDays'
+};
+
+let remoteSettingsTimer = null;
+
+async function fetchRemoteSettings(){
+  const url = (settings.settingsUrl || '').trim();
+  const statusEl = document.getElementById('settingsStatus');
+  if(!url) return;
+  try{
+    const bust = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const res = await fetch(bust, { cache:'no-store' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+
+    let applied = 0, calChanged = false, themeChanged = false;
+    text.split('\n').forEach(raw => {
+      const line = raw.trim();
+      if(!line || line.startsWith('#')) return;
+      const i = line.indexOf(':');
+      if(i < 0) return;
+      const key = line.slice(0, i).trim().toLowerCase().replace(/[\s_-]/g, '');
+      const val = line.slice(i + 1);
+      if(!REMOTE_KEYS[key]) return;
+      const target = REMOTE_TO_SETTING[key];
+      const parsed = REMOTE_KEYS[key](val);
+      if(settings[target] !== parsed){
+        if(target === 'calendarId' || target === 'calendarKey') calChanged = true;
+        if(target === 'theme') themeChanged = true;
+        settings[target] = parsed;
+        if(target === 'upcomingDays') settings.showUpcoming = parsed > 0;
+        applied++;
+      }
+    });
+
+    if(applied){
+      saveLocal();
+      if(themeChanged) applyTheme();
+      startRotation();
+      scheduleMidnightRefresh();
+      if(calChanged){
+        if(settings.calendarId && settings.calendarKey){ fetchCalendar(); startCalendarPolling(); }
+        else { calendarItems = []; if(calendarTimer) clearInterval(calendarTimer); }
+      }
+      refreshActive(true);
+      syncSettingsInputs();
+    }
+    if(statusEl) statusEl.textContent = 'Settings synced ' + new Date().toLocaleTimeString() +
+      (applied ? ' — ' + applied + ' changed' : '');
+  }catch(e){
+    if(statusEl) statusEl.textContent = 'Settings error: ' + e.message;
+  }
+}
+
+function startRemoteSettingsPolling(){
+  if(remoteSettingsTimer) clearInterval(remoteSettingsTimer);
+  remoteSettingsTimer = setInterval(fetchRemoteSettings, 60 * 1000);
+}
+
+// Keep the ⚙ panel showing whatever is actually in effect
+function syncSettingsInputs(){
+  intervalInput.value = settings.interval;
+  remoteUrlInput.value = settings.remoteUrl || '';
+  soundToggleInput.checked = !!settings.soundOn;
+  newMinutesInput.value = settings.newMinutes != null ? settings.newMinutes : 1440;
+  dayStartInput.value = settings.dayStartHour != null ? settings.dayStartHour : 7;
+  summaryToggleInput.checked = settings.showSummaries !== false;
+  graceInput.value = settings.graceMinutes != null ? settings.graceMinutes : 60;
+  themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
+  calIdInput.value = settings.calendarId || '';
+  calKeyInput.value = settings.calendarKey || '';
+  upcomingDaysInput.value = settings.upcomingDays != null ? settings.upcomingDays : 180;
+  const su = document.getElementById('settingsUrl');
+  if(su) su.value = settings.settingsUrl || '';
+}
+
 // ---- Live Google Calendar ----
 let calendarItems = [];   // { date, minutes, end, label }
 let calendarTimer = null;
@@ -655,6 +789,61 @@ async function fetchCalendar(){
 function startCalendarPolling(){
   if(calendarTimer) clearInterval(calendarTimer);
   calendarTimer = setInterval(fetchCalendar, 5 * 60 * 1000);
+}
+
+function daysBetween(isoA, isoB){
+  const a = new Date(isoA + 'T00:00:00');
+  const b = new Date(isoB + 'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+
+function awayLabel(n){
+  if(n === 1) return 'Tomorrow';
+  if(n < 7)  return 'In ' + n + ' days';
+  if(n === 7) return 'In 1 week';
+  if(n < 14) return 'In 1 week, ' + (n - 7) + ' day' + (n - 7 === 1 ? '' : 's');
+  if(n < 21) return 'In 2 weeks';
+  if(n < 28) return 'In 3 weeks';
+  return 'In ' + Math.round(n / 7) + ' weeks';
+}
+
+// Dated entries still to come — personal appointments rather than the day's activities.
+function buildUpcomingPages(){
+  const today = todayISO();
+  const window = (settings.upcomingDays != null) ? settings.upcomingDays : 180;
+
+  const items = rules.map(parseRule)
+    .filter(r => r.type === 'date' && r.date && r.date > today)
+    .filter(r => !(r.until && today > r.until))
+    .filter(r => daysBetween(today, r.date) <= window)
+    .map(r => {
+      const label = stripTimeFromLabel(r.schedLabel || summaryLabel(r));
+      const t = extractTime(summaryLabel(r));
+      const d = new Date(r.date + 'T00:00:00');
+      const away = daysBetween(today, r.date);
+      return {
+        label,
+        when: d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }),
+        time: t ? fmtTime(t.minutes) + (t.end != null ? ' – ' + fmtTime(t.end) : '') : '',
+        away: awayLabel(away),
+        sortKey: r.date + String(t ? t.minutes : 0).padStart(4, '0')
+      };
+    })
+    .sort((a,b) => a.sortKey.localeCompare(b.sortKey));
+
+  if(items.length === 0) return [];
+
+  // Break into pages so the type stays readable
+  const perPage = 4;
+  const pages = [];
+  for(let i = 0; i < items.length; i += perPage){
+    const chunk = items.slice(i, i + perPage);
+    const title = items.length > perPage
+      ? 'Coming up (' + (Math.floor(i/perPage) + 1) + ' of ' + Math.ceil(items.length/perPage) + ')'
+      : 'Coming up';
+    pages.push({ kind:'upcoming', title, items: chunk, raw:'__upcoming_' + i + '__' });
+  }
+  return pages;
 }
 
 // The day laid out in order, split into morning and afternoon so the type stays large.
@@ -755,7 +944,8 @@ function refreshActive(force){
   let next = computeActive();
   if(settings.showSummaries !== false){
     const schedPages = buildSchedulePages();
-    if(schedPages.length) next = schedPages.concat(next);
+    const upcoming = (settings.showUpcoming !== false) ? buildUpcomingPages() : [];
+    next = schedPages.concat(upcoming, next);
   }
 
   // Build a comparison key that ignores the minute-by-minute NOW clock,
@@ -819,8 +1009,8 @@ function applyTheme(){
 function loadLocal(){
   try{ rules = JSON.parse(localStorage.getItem(LS_RULES)) || defaultRules; }
   catch(e){ rules = defaultRules; }
-  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '' }; }
-  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '' }; }
+  try{ settings = JSON.parse(localStorage.getItem(LS_SETTINGS)) || { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '', settingsUrl: '', upcomingDays: 180, showUpcoming: true }; }
+  catch(e){ settings = { interval: 8, remoteUrl: 'https://gist.githubusercontent.com/denabernard/d00ff100a0706865a61694292d24671d/raw/reminders.txt', soundOn: false, newMinutes: 1440, dayStartHour: 7, showSummaries: true, graceMinutes: 60, theme: 'dark', calendarId: '', calendarKey: '', settingsUrl: '', upcomingDays: 180, showUpcoming: true }; }
 }
 function saveLocal(){
   try{ localStorage.setItem(LS_RULES, JSON.stringify(rules)); }catch(e){}
@@ -901,7 +1091,24 @@ function showCurrent(skipAnim){
   const nb = document.getElementById('newBadge');
   if(nb) nb.innerHTML = isNew(item.raw) ? '<span class="new-badge">New</span>' : '';
 
-  if(item.kind === 'schedule'){
+  if(item.kind === 'upcoming'){
+    const n = item.items.length;
+    const nameSize = n <= 2 ? 'clamp(32px,4.4vw,66px)' : (n === 3 ? 'clamp(27px,3.6vw,54px)' : 'clamp(23px,3vw,44px)');
+    const metaSize = n <= 2 ? 'clamp(17px,2vw,30px)'   : (n === 3 ? 'clamp(15px,1.8vw,25px)' : 'clamp(13px,1.6vw,21px)');
+    contentEl.innerHTML =
+      `<div class="summary-title">${escapeHtml(item.title)}</div>` +
+      `<div class="up-wrap">` +
+      item.items.map(u =>
+        `<div class="up-row">` +
+          `<div class="up-away">${escapeHtml(u.away)}</div>` +
+          `<div class="up-body">` +
+            `<div class="up-name" style="font-size:${nameSize};">${escapeHtml(u.label)}</div>` +
+            `<div class="up-meta" style="font-size:${metaSize};">${escapeHtml(u.when)}${u.time ? ' · ' + escapeHtml(u.time) : ''}</div>` +
+          `</div>` +
+        `</div>`
+      ).join('') +
+      `</div>`;
+  } else if(item.kind === 'schedule'){
     // Scale to fit: the more rows, the smaller the type
     const n = item.rows.length;
     let labelSize, timeSize, rowPad, titleSize;
@@ -993,9 +1200,17 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   let gm = parseInt(graceInput.value, 10);
   if(isNaN(gm) || gm < 0) gm = 0;
   settings.graceMinutes = gm;
+  let ud = parseInt(upcomingDaysInput.value, 10);
+  if(isNaN(ud) || ud < 0) ud = 0;
+  settings.upcomingDays = ud;
+  settings.showUpcoming = ud > 0;
   settings.theme = themeSelect.value;
   settings.calendarId = calIdInput.value.trim();
   settings.calendarKey = calKeyInput.value.trim();
+  const suEl = document.getElementById('settingsUrl');
+  settings.settingsUrl = suEl ? suEl.value.trim() : '';
+  if(settings.settingsUrl){ fetchRemoteSettings(); startRemoteSettingsPolling(); }
+  else if(remoteSettingsTimer) clearInterval(remoteSettingsTimer);
   applyTheme();
   if(settings.calendarId && settings.calendarKey){
     fetchCalendar();
@@ -1039,16 +1254,7 @@ setInterval(tickClock, 15000);
 function init(){
   loadLocal();
   loadSeen();
-  intervalInput.value = settings.interval;
-  remoteUrlInput.value = settings.remoteUrl || '';
-  soundToggleInput.checked = !!settings.soundOn;
-  newMinutesInput.value = settings.newMinutes != null ? settings.newMinutes : 1440;
-  dayStartInput.value = settings.dayStartHour != null ? settings.dayStartHour : 7;
-  summaryToggleInput.checked = settings.showSummaries !== false;
-  graceInput.value = settings.graceMinutes != null ? settings.graceMinutes : 60;
-  themeSelect.value = settings.theme === 'light' ? 'light' : 'dark';
-  calIdInput.value = settings.calendarId || '';
-  calKeyInput.value = settings.calendarKey || '';
+  syncSettingsInputs();
   applyTheme();
   refreshActive();
   startRotation();
@@ -1056,6 +1262,10 @@ function init(){
   if(settings.remoteUrl){
     fetchRemote();
     startRemotePolling();
+  }
+  if(settings.settingsUrl){
+    fetchRemoteSettings();
+    startRemoteSettingsPolling();
   }
   if(settings.calendarId && settings.calendarKey){
     fetchCalendar();
